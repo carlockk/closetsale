@@ -25,6 +25,11 @@ type Message = {
 
 const CONVERSATIONS_POLL_MS = 15000;
 const MESSAGES_POLL_MS = 5000;
+const MESSAGE_DATE_FORMATTER = new Intl.DateTimeFormat("es-CL", {
+  dateStyle: "short",
+  timeStyle: "short",
+  timeZone: "America/Santiago",
+});
 
 function formatDate(value?: string) {
   if (!value) {
@@ -36,7 +41,7 @@ function formatDate(value?: string) {
     return "";
   }
 
-  return date.toLocaleString();
+  return MESSAGE_DATE_FORMATTER.format(date);
 }
 
 export function AdminMessagesPage({
@@ -59,6 +64,8 @@ export function AdminMessagesPage({
   const [error, setError] = useState("");
   const conversationsTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const messagesTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const hydratedFromServer = useRef(initialConversations.length > 0);
+  const hydratedMessagesFromServer = useRef(initialMessages.length > 0);
 
   const fetchConversations = useCallback(async (showSpinner = true) => {
     try {
@@ -123,7 +130,8 @@ export function AdminMessagesPage({
   }, []);
 
   useEffect(() => {
-    fetchConversations(true);
+    fetchConversations(!hydratedFromServer.current);
+    hydratedFromServer.current = false;
     conversationsTimer.current = setInterval(
       () => fetchConversations(false),
       CONVERSATIONS_POLL_MS,
@@ -142,7 +150,8 @@ export function AdminMessagesPage({
       return;
     }
 
-    fetchMessages(activeChannel, true);
+    fetchMessages(activeChannel, !hydratedMessagesFromServer.current);
+    hydratedMessagesFromServer.current = false;
 
     if (messagesTimer.current) {
       clearInterval(messagesTimer.current);

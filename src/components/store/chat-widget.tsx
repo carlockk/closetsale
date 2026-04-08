@@ -35,6 +35,18 @@ type ChatMessage = {
   createdAt: string;
 };
 
+type AdminConversation = {
+  channel: string;
+  totalMessages: number;
+  lastMessage: {
+    text: string;
+    sender: string;
+    fromRole: string;
+    createdAt: string;
+  };
+  user: { name: string; email: string } | null;
+};
+
 function makeGuestChannel() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return `guest-${crypto.randomUUID()}`;
@@ -65,10 +77,12 @@ export function ChatWidget() {
   const [name, setName] = useState("Invitado");
   const [user, setUser] = useState<SessionUser | null>(null);
   const [authResolved, setAuthResolved] = useState(false);
+  const [adminConversations, setAdminConversations] = useState<AdminConversation[]>([]);
+  const [adminActiveChannel, setAdminActiveChannel] = useState<string | null>(null);
   const [guestChannel] = useState<string | null>(getInitialGuestChannel);
   const containerRef = useRef<HTMLDivElement>(null);
-  const isAdminPreview = authResolved && user?.role === "ADMIN";
-  const channel = isAdminPreview ? null : user?.id || guestChannel;
+  const isAdminMode = authResolved && user?.role === "ADMIN";
+  const channel = isAdminMode ? adminActiveChannel : user?.id || guestChannel;
 
   useEffect(() => {
     let closeTimer: number | null = null;
@@ -120,7 +134,59 @@ export function ChatWidget() {
   }, []);
 
   useEffect(() => {
+    if (!isAdminMode) {
+      return;
+    }
+
+    let active = true;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const loadConversations = async () => {
+      try {
+        const response = await fetch("/api/chat", { cache: "no-store" });
+        const data = await response.json();
+
+        if (!active) {
+          return;
+        }
+
+        const items = Array.isArray(data.conversations) ? data.conversations : [];
+        setAdminConversations(items);
+        setAdminActiveChannel((current) => {
+          if (!current && items.length > 0) {
+            return items[0].channel;
+          }
+
+          if (current && !items.some((item: AdminConversation) => item.channel === current)) {
+            return items[0]?.channel || null;
+          }
+
+          return current;
+        });
+      } catch {
+        // Silent by design for polling
+      }
+
+      if (!active) {
+        return;
+      }
+
+      timer = setTimeout(loadConversations, POLL_MS);
+    };
+
+    loadConversations();
+
+    return () => {
+      active = false;
+      if (timer) {
+        clearTimeout(timer);
+      }
+    };
+  }, [isAdminMode]);
+
+  useEffect(() => {
     if (!channel) {
+      setMessages([]);
       return;
     }
 
@@ -174,7 +240,7 @@ export function ChatWidget() {
   const sendMessage = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!text.trim() || !channel || isAdminPreview) {
+    if (!text.trim() || !channel) {
       return;
     }
 
@@ -189,15 +255,34 @@ export function ChatWidget() {
     });
 
     setText("");
+    if (isAdminMode) {
+      setTimeout(() => {
+        void fetch("/api/chat", { cache: "no-store" })
+          .then((response) => response.json())
+          .then((data) => {
+            const items = Array.isArray(data.conversations) ? data.conversations : [];
+            setAdminConversations(items);
+          })
+          .catch(() => undefined);
+      }, 150);
+    }
   };
 
   const isOwnMessage = (message: ChatMessage) => {
+    if (isAdminMode) {
+      return message.fromRole === "ADMIN";
+    }
+
     if (user) {
       return message.fromRole === "USER";
     }
 
     return message.fromRole !== "ADMIN" && message.channel === channel;
   };
+
+  const activeAdminConversation = adminConversations.find(
+    (conversation) => conversation.channel === adminActiveChannel,
+  );
 
   return (
     <div className="fixed bottom-4 right-4 z-[90]">
@@ -241,10 +326,38 @@ export function ChatWidget() {
             </div>
           ) : null}
 
-          {isAdminPreview ? (
-            <div className="border-b border-stone-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
-              Vista previa del chat en sitio publico. Las respuestas de administracion se hacen desde
-              el panel en <span className="font-semibold">Mensajes</span>.
+          {isAdminMode ? (
+            <div className="border-b border-stone-200 bg-stone-50 px-4 py-3">
+              <p className="text-[11px] uppercase tracking-[0.2em] text-stone-500">
+                Conversaciones
+              </p>
+              {adminConversations.length === 0 ? (
+                <p className="mt-2 text-xs text-stone-500">Sin mensajes por ahora.</p>
+              ) : (
+                <div className="mt-2 max-h-24 space-y-2 overflow-y-auto">
+                  {adminConversations.map((conversation) => {
+                    const isActive = conversation.channel === adminActiveChannel;
+
+                    return (
+                      <button
+                        key={conversation.channel}
+                        type="button"
+                        onClick={() => setAdminActiveChannel(conversation.channel)}
+                        className={`block w-full border px-3 py-2 text-left text-xs transition ${
+                          isActive
+                            ? "border-stone-900 bg-white text-stone-900"
+                            : "border-stone-200 bg-white text-stone-600"
+                        }`}
+                      >
+                        <p className="font-semibold">
+                          {conversation.user?.name || conversation.lastMessage.sender || "Visitante"}
+                        </p>
+                        <p className="truncate">{conversation.lastMessage.text}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           ) : (
             <div className="px-4 pt-3">
@@ -261,9 +374,15 @@ export function ChatWidget() {
             ref={containerRef}
             className="flex-1 space-y-3 overflow-y-auto bg-stone-50 px-4 py-4"
           >
-            {messages.length === 0 ? (
+            {isAdminMode && !adminActiveChannel ? (
               <p className="text-center text-sm text-stone-500">
-                Inicia la conversacion y te responderemos por aqui.
+                Selecciona una conversacion para responder.
+              </p>
+            ) : messages.length === 0 ? (
+              <p className="text-center text-sm text-stone-500">
+                {isAdminMode
+                  ? "Aun no hay mensajes en esta conversacion."
+                  : "Inicia la conversacion y te responderemos por aqui."}
               </p>
             ) : (
               messages.map((message) => {
@@ -281,7 +400,9 @@ export function ChatWidget() {
                       }`}
                     >
                       <span className="mb-1 block text-xs font-semibold">
-                        {message.fromRole === "ADMIN" ? CHAT_TEAM_NAME : message.sender}
+                        {message.fromRole === "ADMIN"
+                          ? user?.name || CHAT_TEAM_NAME
+                          : message.sender}
                       </span>
                       <span className="whitespace-pre-wrap break-words">{message.text}</span>
                       <span className="mt-1 block text-[10px] opacity-70">
@@ -297,14 +418,14 @@ export function ChatWidget() {
           <form onSubmit={sendMessage} className="flex gap-2 border-t border-stone-200 p-3">
             <input
               className="flex-1 rounded-xl border border-stone-200 px-3 py-2 text-sm"
-              placeholder={CHAT_PLACEHOLDER}
+              placeholder={isAdminMode ? "Responder conversacion..." : CHAT_PLACEHOLDER}
               value={text}
               onChange={(event) => setText(event.target.value)}
-              disabled={!channel || isAdminPreview || !authResolved}
+              disabled={!channel || !authResolved}
             />
             <button
               className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-stone-900 text-white disabled:opacity-50"
-              disabled={!channel || !text.trim() || isAdminPreview || !authResolved}
+              disabled={!channel || !text.trim() || !authResolved}
               aria-label="Enviar mensaje"
             >
               <Send className="h-4 w-4" />
