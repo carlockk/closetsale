@@ -185,3 +185,89 @@ export async function createProductAction(formData: FormData) {
   revalidatePath("/");
   redirect("/admin/products?message=Producto creado");
 }
+
+export async function updateProductAction(formData: FormData) {
+  await requireAdmin();
+
+  const productId = String(formData.get("productId") || "");
+  const rawImages = String(formData.get("imageUrls") || "[]");
+  const rawVariants = String(formData.get("variants") || "[]");
+
+  const parsed = productSchema.safeParse({
+    title: formData.get("title"),
+    slug: formData.get("slug") || safeSlug(String(formData.get("title") || "")),
+    description: formData.get("description"),
+    price: formData.get("price"),
+    compareAtPrice: formData.get("compareAtPrice") || undefined,
+    brand: formData.get("brand"),
+    color: formData.get("color"),
+    categoryId: formData.get("categoryId"),
+    imageUrls: JSON.parse(rawImages),
+    variants: JSON.parse(rawVariants),
+  });
+
+  if (!productId || !parsed.success) {
+    redirect(`/admin/products?edit=${productId}&message=No se pudo actualizar el producto`);
+  }
+
+  await prisma.product.update({
+    where: { id: productId },
+    data: {
+      title: parsed.data.title,
+      slug: safeSlug(parsed.data.slug),
+      description: parsed.data.description,
+      price: parsed.data.price,
+      compareAtPrice: parsed.data.compareAtPrice || null,
+      brand: parsed.data.brand || null,
+      color: parsed.data.color || null,
+      categoryId: parsed.data.categoryId,
+      images: {
+        deleteMany: {},
+        create: parsed.data.imageUrls.map((url, index) => ({
+          url,
+          alt: parsed.data.title,
+          sortOrder: index,
+        })),
+      },
+      variants: {
+        deleteMany: {},
+        create: parsed.data.variants,
+      },
+    },
+  });
+
+  revalidatePath("/admin/products");
+  revalidatePath("/products");
+  revalidatePath(`/products/${safeSlug(parsed.data.slug)}`);
+  revalidatePath("/");
+  redirect("/admin/products?message=Producto actualizado");
+}
+
+export async function deleteProductAction(formData: FormData) {
+  await requireAdmin();
+
+  const productId = String(formData.get("productId") || "");
+
+  if (!productId) {
+    redirect("/admin/products?message=No se pudo eliminar el producto");
+  }
+
+  const product = await prisma.product.findUnique({
+    where: { id: productId },
+    select: { slug: true },
+  });
+
+  if (!product) {
+    redirect("/admin/products?message=Producto no encontrado");
+  }
+
+  await prisma.product.delete({
+    where: { id: productId },
+  });
+
+  revalidatePath("/admin/products");
+  revalidatePath("/products");
+  revalidatePath(`/products/${product.slug}`);
+  revalidatePath("/");
+  redirect("/admin/products?message=Producto eliminado");
+}

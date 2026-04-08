@@ -3,6 +3,8 @@
 import { Loader2, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { AdminSideDrawer } from "@/components/admin/admin-side-drawer";
+
 type SubmenuInput = {
   name: string;
   href: string;
@@ -301,42 +303,37 @@ export function MenusManager({ pages }: { pages: SitePageOption[] }) {
       )}
 
       {dialogOpen ? (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/60 px-4">
-          <div className="w-full max-w-3xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-              <h2 className="text-lg font-semibold text-slate-900">
-                {editingId ? "Editar menu" : "Crear menu"}
-              </h2>
-              <button type="button" onClick={closeDialog} className="border border-slate-200 px-3 py-1 text-sm text-slate-600">
-                Cerrar
-              </button>
-            </div>
-            <form onSubmit={handleSubmit} className="max-h-[75vh] overflow-y-auto p-6">
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="grid gap-2 text-sm">
-                  <span>Nombre</span>
-                  <input
-                    value={formData.name}
-                    onChange={(event) => updateField("name", event.target.value)}
-                    className="border border-slate-200 px-3 py-2"
-                    required
-                  />
-                </label>
-                <label className="grid gap-2 text-sm">
-                  <span>Orden</span>
-                  <input
-                    type="number"
-                    value={formData.order}
-                    onChange={(event) => updateField("order", Number(event.target.value))}
-                    className="border border-slate-200 px-3 py-2"
-                  />
-                </label>
+        <AdminSideDrawer
+          open={dialogOpen}
+          onClose={closeDialog}
+          title={editingId ? "Editar menu" : "Crear menu"}
+        >
+          <form onSubmit={handleSubmit} className="grid gap-4 border border-slate-200 bg-white p-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="grid gap-2 text-sm">
+                <span>Nombre</span>
+                <input
+                  value={formData.name}
+                  onChange={(event) => updateField("name", event.target.value)}
+                  className="min-w-0 border border-slate-200 px-3 py-2"
+                  required
+                />
+              </label>
+              <label className="grid gap-2 text-sm">
+                <span>Orden</span>
+                <input
+                  type="number"
+                  value={formData.order}
+                  onChange={(event) => updateField("order", Number(event.target.value))}
+                  className="min-w-0 border border-slate-200 px-3 py-2"
+                />
+              </label>
               <label className="grid gap-2 text-sm md:col-span-2">
                 <span>Enlace</span>
                 <select
                   value={getSelectValue(formData.href)}
                   onChange={(event) => updateField("href", event.target.value)}
-                  className="border border-slate-200 px-3 py-2"
+                  className="min-w-0 border border-slate-200 px-3 py-2"
                   required
                 >
                   <option value="">Selecciona un destino</option>
@@ -358,101 +355,103 @@ export function MenusManager({ pages }: { pages: SitePageOption[] }) {
                   <input
                     value={formData.href}
                     onChange={(event) => updateField("href", event.target.value)}
-                    className="border border-slate-200 px-3 py-2"
+                    className="min-w-0 border border-slate-200 px-3 py-2"
                     placeholder="/orders"
                     required
                   />
                 </label>
               ) : null}
+            </div>
+
+            <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={formData.enabled}
+                onChange={(event) => updateField("enabled", event.target.checked)}
+              />
+              Mostrar en la navegacion
+            </label>
+
+            <div className="space-y-3 border border-slate-200 bg-slate-50 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-sm font-semibold text-slate-800">Submenus</h3>
+                <button
+                  type="button"
+                  onClick={addSubmenu}
+                  className="inline-flex items-center gap-1 border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Anadir
+                </button>
               </div>
-
-              <label className="mt-4 inline-flex items-center gap-2 text-sm text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={formData.enabled}
-                  onChange={(event) => updateField("enabled", event.target.checked)}
-                />
-                Mostrar en la navegacion
-              </label>
-
-              <div className="mt-6 space-y-3 border border-slate-200 bg-slate-50 p-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-slate-800">Submenus</h3>
+              {formData.submenus.length === 0 ? (
+                <p className="text-xs text-slate-500">Opcional. Sirve para dropdowns globales.</p>
+              ) : null}
+              {formData.submenus.map((submenu, index) => (
+                <div
+                  key={`${index}-${submenu.name}`}
+                  className="grid gap-3 border border-slate-200 bg-white p-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_120px_auto]"
+                >
+                  <input
+                    value={submenu.name}
+                    onChange={(event) => updateSubmenu(index, "name", event.target.value)}
+                    className="min-w-0 border border-slate-200 px-3 py-2 text-sm"
+                    placeholder="Nombre"
+                  />
+                  <select
+                    value={getSelectValue(submenu.href)}
+                    onChange={(event) => updateSubmenu(index, "href", event.target.value)}
+                    className="min-w-0 border border-slate-200 px-3 py-2 text-sm"
+                  >
+                    <option value="">Selecciona un destino</option>
+                    <option value="/">Inicio</option>
+                    <option value="/products">Tienda</option>
+                    {pages
+                      .filter((page) => page.isPublished)
+                      .map((page) => (
+                        <option key={`submenu-${page.id}`} value={`/pages/${page.slug}`}>
+                          Pagina: {page.title}
+                        </option>
+                      ))}
+                    <option value={CUSTOM_ROUTE_VALUE}>Ruta manual</option>
+                  </select>
+                  {getSelectValue(submenu.href) === CUSTOM_ROUTE_VALUE ? (
+                    <input
+                      value={submenu.href}
+                      onChange={(event) => updateSubmenu(index, "href", event.target.value)}
+                      className="min-w-0 border border-slate-200 px-3 py-2 text-sm sm:col-span-2 xl:col-span-2"
+                      placeholder="/orders"
+                    />
+                  ) : null}
+                  <input
+                    type="number"
+                    value={submenu.order}
+                    onChange={(event) => updateSubmenu(index, "order", Number(event.target.value))}
+                    className="min-w-0 border border-slate-200 px-3 py-2 text-sm"
+                    placeholder="Orden"
+                  />
                   <button
                     type="button"
-                    onClick={addSubmenu}
-                    className="inline-flex items-center gap-1 border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700"
+                    onClick={() => removeSubmenu(index)}
+                    className="border border-rose-200 px-3 py-2 text-xs text-rose-700"
                   >
-                    <Plus className="h-3.5 w-3.5" />
-                    Anadir
+                    Quitar
                   </button>
                 </div>
-                {formData.submenus.length === 0 ? (
-                  <p className="text-xs text-slate-500">Opcional. Sirve para dropdowns globales.</p>
-                ) : null}
-                {formData.submenus.map((submenu, index) => (
-                  <div key={`${index}-${submenu.name}`} className="grid gap-3 border border-slate-200 bg-white p-3 md:grid-cols-[1fr_1fr_120px_auto]">
-                    <input
-                      value={submenu.name}
-                      onChange={(event) => updateSubmenu(index, "name", event.target.value)}
-                      className="border border-slate-200 px-3 py-2 text-sm"
-                      placeholder="Nombre"
-                    />
-                    <select
-                      value={getSelectValue(submenu.href)}
-                      onChange={(event) => updateSubmenu(index, "href", event.target.value)}
-                      className="border border-slate-200 px-3 py-2 text-sm"
-                    >
-                      <option value="">Selecciona un destino</option>
-                      <option value="/">Inicio</option>
-                      <option value="/products">Tienda</option>
-                      {pages
-                        .filter((page) => page.isPublished)
-                        .map((page) => (
-                          <option key={`submenu-${page.id}`} value={`/pages/${page.slug}`}>
-                            Pagina: {page.title}
-                          </option>
-                        ))}
-                      <option value={CUSTOM_ROUTE_VALUE}>Ruta manual</option>
-                    </select>
-                    {getSelectValue(submenu.href) === CUSTOM_ROUTE_VALUE ? (
-                      <input
-                        value={submenu.href}
-                        onChange={(event) => updateSubmenu(index, "href", event.target.value)}
-                        className="border border-slate-200 px-3 py-2 text-sm md:col-span-2"
-                        placeholder="/orders"
-                      />
-                    ) : null}
-                    <input
-                      type="number"
-                      value={submenu.order}
-                      onChange={(event) => updateSubmenu(index, "order", Number(event.target.value))}
-                      className="border border-slate-200 px-3 py-2 text-sm"
-                      placeholder="Orden"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeSubmenu(index)}
-                      className="border border-rose-200 px-3 py-2 text-xs text-rose-700"
-                    >
-                      Quitar
-                    </button>
-                  </div>
-                ))}
-              </div>
+              ))}
+            </div>
 
-              <div className="mt-6 flex justify-end gap-2">
-                <button type="button" onClick={closeDialog} className="border border-slate-200 px-4 py-2 text-sm text-slate-700">
-                  Cancelar
-                </button>
-                <button type="submit" disabled={saving} className="inline-flex items-center gap-2 bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-60">
-                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                  {editingId ? "Guardar cambios" : "Crear menu"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={closeDialog} className="border border-slate-200 px-4 py-2 text-sm text-slate-700">
+                Cancelar
+              </button>
+              <button type="submit" disabled={saving} className="inline-flex items-center gap-2 bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-60">
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                {editingId ? "Guardar cambios" : "Crear menu"}
+              </button>
+            </div>
+          </form>
+        </AdminSideDrawer>
       ) : null}
     </div>
   );

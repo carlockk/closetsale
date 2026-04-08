@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import logoImage from "../../../public/logo.png";
 
 import { logoutAction } from "@/actions/auth";
 
@@ -26,7 +27,7 @@ export function AdminSidebar({
         <p className="text-[11px] uppercase tracking-[0.28em] text-slate-400">Admin</p>
         <div className="mt-2 flex items-center gap-3">
           <Image
-            src="/logo.png"
+            src={logoImage}
             alt="ClosetSale"
             width={40}
             height={40}

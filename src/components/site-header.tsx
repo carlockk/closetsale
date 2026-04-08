@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { LayoutDashboard, UserRound } from "lucide-react";
+import logoImage from "../../public/logo.png";
 
 import { AuthDrawer } from "@/components/auth-drawer";
 import { MobileNavDrawer } from "@/components/mobile-nav-drawer";
@@ -39,7 +40,7 @@ export async function SiteHeader() {
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 lg:px-8">
         <Link href="/" className="flex items-center gap-3">
           <Image
-            src="/logo.png"
+            src={logoImage}
             alt="ClosetSale"
             width={44}
             height={44}
