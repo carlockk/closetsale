@@ -8,9 +8,15 @@ import { loginAction, registerAction } from "@/actions/auth";
 
 type AuthDrawerProps = {
   isAuthenticated: boolean;
+  label?: string;
+  triggerClassName?: string;
 };
 
-export function AuthDrawer({ isAuthenticated }: AuthDrawerProps) {
+export function AuthDrawer({
+  isAuthenticated,
+  label = "Ingresar",
+  triggerClassName = "text-stone-700",
+}: AuthDrawerProps) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<"login" | "register">("login");
   const [showPassword, setShowPassword] = useState(false);
@@ -196,10 +202,10 @@ export function AuthDrawer({ isAuthenticated }: AuthDrawerProps) {
         type="button"
         onClick={() => openDrawer("login")}
         data-auth-trigger
-        className="text-stone-700"
+        className={triggerClassName}
         aria-label="Abrir login"
       >
-        Ingresar
+        {label}
       </button>
       {canPortal && shouldRender ? createPortal(drawerMarkup, document.body) : null}
     </>

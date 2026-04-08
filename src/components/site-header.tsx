@@ -1,8 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
-import { LayoutDashboard, UserRound } from "lucide-react";
+import { LayoutDashboard, LogOut, UserRound } from "lucide-react";
 import logoImage from "../../public/logo.png";
 
+import { logoutAction } from "@/actions/auth";
 import { AuthDrawer } from "@/components/auth-drawer";
 import { MobileNavDrawer } from "@/components/mobile-nav-drawer";
 import { SiteSearch } from "@/components/site-search";
@@ -37,7 +38,50 @@ export async function SiteHeader() {
 
   return (
     <SiteHeaderShell>
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 lg:px-8">
+      <div className="lg:hidden">
+        <div className="bg-stone-950 px-4 py-2 text-white">
+          <div className="flex items-center justify-between gap-3">
+            <MobileNavDrawer
+              menus={menus}
+              isAdmin={session?.role === "ADMIN"}
+              isAuthenticated={Boolean(session)}
+            />
+            {session ? (
+              <div className="truncate text-xs font-medium">
+                Bienvenido: {session.name}
+              </div>
+            ) : (
+              <AuthDrawer
+                isAuthenticated={Boolean(session)}
+                label="Ingresar"
+                triggerClassName="text-xs font-medium text-white"
+              />
+            )}
+          </div>
+        </div>
+        <div className="border-b border-stone-200 bg-[#f6f0e7] px-4 py-5">
+          <Link href="/" className="flex items-center justify-center gap-3 text-center">
+            <Image
+              src={logoImage}
+              alt="ClosetSale"
+              width={46}
+              height={46}
+              className="h-[2.65rem] w-auto shrink-0 object-contain"
+              priority
+            />
+            <span className="flex flex-col items-start leading-none">
+              <span className="font-serif text-[17px] tracking-[0.18em] text-stone-900">
+                CLOSETSALE
+              </span>
+              <span className="mt-1 text-[9px] uppercase tracking-[0.2em] text-stone-500">
+                curated store
+              </span>
+            </span>
+          </Link>
+        </div>
+      </div>
+
+      <div className="mx-auto hidden max-w-7xl items-center justify-between gap-4 px-4 py-4 lg:flex lg:px-8">
         <Link href="/" className="flex items-center gap-3">
           <Image
             src={logoImage}
@@ -86,23 +130,6 @@ export async function SiteHeader() {
         </nav>
 
         <div className="flex items-center gap-4">
-          <MobileNavDrawer
-            menus={menus}
-            isAdmin={session?.role === "ADMIN"}
-            isAuthenticated={Boolean(session)}
-          />
-          <div className="flex items-center gap-2 text-stone-700 md:hidden">
-            {session ? (
-              <Link href="/profile" className="inline-flex items-center gap-2 text-sm text-stone-700">
-                <UserRound className="h-5 w-5" />
-              </Link>
-            ) : (
-              <>
-                <UserRound className="h-5 w-5" />
-                <AuthDrawer isAuthenticated={Boolean(session)} />
-              </>
-            )}
-          </div>
           <div className="hidden lg:block">
             <SiteSearch />
           </div>
@@ -121,15 +148,22 @@ export async function SiteHeader() {
               </div>
             )}
           </div>
+          {session ? (
+            <div className="group relative hidden md:block">
+              <form action={logoutAction}>
+                <button className="text-stone-700" aria-label="Cerrar sesion">
+                  <LogOut className="h-5 w-5" />
+                </button>
+              </form>
+              <div className="pointer-events-none absolute left-1/2 top-full z-[70] mt-2 -translate-x-1/2 rounded-full bg-stone-900 px-3 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
+                Cerrar sesion
+              </div>
+            </div>
+          ) : null}
           {session?.role === "ADMIN" ? (
-            <>
-              <HeaderIconLink href="/admin" label="Panel admin">
-                <LayoutDashboard className="h-5 w-5" />
-              </HeaderIconLink>
-              <Link href="/admin" className="text-stone-700 md:hidden">
-                <LayoutDashboard className="h-5 w-5" />
-              </Link>
-            </>
+            <HeaderIconLink href="/admin" label="Panel admin">
+              <LayoutDashboard className="h-5 w-5" />
+            </HeaderIconLink>
           ) : null}
         </div>
       </div>
