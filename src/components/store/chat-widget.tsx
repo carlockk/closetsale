@@ -64,9 +64,11 @@ export function ChatWidget() {
   const [text, setText] = useState("");
   const [name, setName] = useState("Invitado");
   const [user, setUser] = useState<SessionUser | null>(null);
+  const [authResolved, setAuthResolved] = useState(false);
   const [guestChannel] = useState<string | null>(getInitialGuestChannel);
   const containerRef = useRef<HTMLDivElement>(null);
-  const channel = user?.id || guestChannel;
+  const isAdminPreview = authResolved && user?.role === "ADMIN";
+  const channel = isAdminPreview ? null : user?.id || guestChannel;
 
   useEffect(() => {
     let closeTimer: number | null = null;
@@ -108,16 +110,13 @@ export function ChatWidget() {
     fetch("/api/auth/me", { cache: "no-store" })
       .then((response) => response.json())
       .then((data) => {
-        if (data?.user?.role === "ADMIN") {
-          return;
-        }
-
         if (data?.user) {
           setUser(data.user);
           setName(data.user.name);
         }
       })
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => setAuthResolved(true));
   }, []);
 
   useEffect(() => {
@@ -175,7 +174,7 @@ export function ChatWidget() {
   const sendMessage = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!text.trim() || !channel) {
+    if (!text.trim() || !channel || isAdminPreview) {
       return;
     }
 
@@ -242,7 +241,7 @@ export function ChatWidget() {
             </div>
           ) : null}
 
-          {user?.role === "ADMIN" ? (
+          {isAdminPreview ? (
             <div className="border-b border-stone-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
               Vista previa del chat en sitio publico. Las respuestas de administracion se hacen desde
               el panel en <span className="font-semibold">Mensajes</span>.
@@ -301,11 +300,11 @@ export function ChatWidget() {
               placeholder={CHAT_PLACEHOLDER}
               value={text}
               onChange={(event) => setText(event.target.value)}
-              disabled={!channel || user?.role === "ADMIN"}
+              disabled={!channel || isAdminPreview || !authResolved}
             />
             <button
               className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-stone-900 text-white disabled:opacity-50"
-              disabled={!channel || !text.trim() || user?.role === "ADMIN"}
+              disabled={!channel || !text.trim() || isAdminPreview || !authResolved}
               aria-label="Enviar mensaje"
             >
               <Send className="h-4 w-4" />
