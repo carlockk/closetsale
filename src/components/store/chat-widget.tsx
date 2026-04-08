@@ -280,10 +280,6 @@ export function ChatWidget() {
     return message.fromRole !== "ADMIN" && message.channel === channel;
   };
 
-  const activeAdminConversation = adminConversations.find(
-    (conversation) => conversation.channel === adminActiveChannel,
-  );
-
   return (
     <div className="fixed bottom-4 right-4 z-[90]">
       <div
@@ -350,9 +346,9 @@ export function ChatWidget() {
                         }`}
                       >
                         <p className="font-semibold">
-                          {conversation.user?.name || conversation.lastMessage.sender || "Visitante"}
+                          {conversation.user?.name || conversation.lastMessage?.sender || "Visitante"}
                         </p>
-                        <p className="truncate">{conversation.lastMessage.text}</p>
+                        <p className="truncate">{conversation.lastMessage?.text || "Sin mensajes"}</p>
                       </button>
                     );
                   })}

@@ -73,7 +73,7 @@ export async function GET(request: Request) {
           });
 
           return acc;
-        }, new Map()),
+        }, new Map()).values(),
       );
 
       return Response.json({ conversations });
