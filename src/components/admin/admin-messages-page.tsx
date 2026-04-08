@@ -39,12 +39,22 @@ function formatDate(value?: string) {
   return date.toLocaleString();
 }
 
-export function AdminMessagesPage({ adminName }: { adminName: string }) {
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [activeChannel, setActiveChannel] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
+export function AdminMessagesPage({
+  adminName,
+  initialConversations = [],
+  initialMessages = [],
+  initialActiveChannel = null,
+}: {
+  adminName: string;
+  initialConversations?: Conversation[];
+  initialMessages?: Message[];
+  initialActiveChannel?: string | null;
+}) {
+  const [conversations, setConversations] = useState<Conversation[]>(initialConversations);
+  const [activeChannel, setActiveChannel] = useState<string | null>(initialActiveChannel);
+  const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [text, setText] = useState("");
-  const [loadingConversations, setLoadingConversations] = useState(true);
+  const [loadingConversations, setLoadingConversations] = useState(initialConversations.length === 0);
   const [loadingThread, setLoadingThread] = useState(false);
   const [error, setError] = useState("");
   const conversationsTimer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -229,7 +239,7 @@ export function AdminMessagesPage({ adminName }: { adminName: string }) {
                     }`}
                   >
                     <span className="text-sm font-semibold text-slate-800">
-                      {conversation.user?.name || "Visitante"}
+                      {conversation.user?.name || conversation.lastMessage?.sender || "Visitante"}
                     </span>
                     <span className="text-xs text-slate-500">
                       {conversation.user?.email || conversation.channel}
