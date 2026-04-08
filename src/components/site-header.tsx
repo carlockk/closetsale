@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { LayoutDashboard, LogOut, UserRound } from "lucide-react";
+import { LogOut, UserRound } from "lucide-react";
 import logoImage from "../../public/logo.png";
 
 import { logoutAction } from "@/actions/auth";
@@ -11,27 +11,6 @@ import { SiteHeaderShell } from "@/components/site-header-shell";
 import { StoreHeaderShortcuts } from "@/components/store/store-shortcuts";
 import { getSession } from "@/lib/auth";
 import { getGlobalMenus } from "@/lib/site-menus";
-
-function HeaderIconLink({
-  href,
-  label,
-  children,
-}: {
-  href: string;
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="group relative hidden md:block">
-      <Link href={href} className="text-stone-700">
-        {children}
-      </Link>
-      <div className="pointer-events-none absolute left-1/2 top-full z-[70] mt-2 -translate-x-1/2 rounded-full bg-stone-900 px-3 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
-        {label}
-      </div>
-    </div>
-  );
-}
 
 export async function SiteHeader() {
   const [menus, session] = await Promise.all([getGlobalMenus(), getSession()]);
@@ -159,11 +138,6 @@ export async function SiteHeader() {
                 Cerrar sesion
               </div>
             </div>
-          ) : null}
-          {session?.role === "ADMIN" ? (
-            <HeaderIconLink href="/admin" label="Panel admin">
-              <LayoutDashboard className="h-5 w-5" />
-            </HeaderIconLink>
           ) : null}
         </div>
       </div>
