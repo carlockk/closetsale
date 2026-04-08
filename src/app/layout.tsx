@@ -24,6 +24,11 @@ const body = Manrope({
 export const metadata: Metadata = {
   title: "ClosetSale",
   description: "Ecommerce con admin, carrito, favoritos, slider y Neon/Postgres.",
+  icons: {
+    icon: "/logo.png",
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default async function RootLayout({
