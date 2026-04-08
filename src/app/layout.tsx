@@ -25,8 +25,14 @@ export const metadata: Metadata = {
   title: "ClosetSale",
   description: "Ecommerce con admin, carrito, favoritos, slider y Neon/Postgres.",
   icons: {
-    icon: "/logo.png",
-    shortcut: "/logo.png",
+    icon: [
+      { url: "/logo.png", media: "(prefers-color-scheme: light)" },
+      { url: "/logo-white.png", media: "(prefers-color-scheme: dark)" },
+    ],
+    shortcut: [
+      { url: "/logo.png", media: "(prefers-color-scheme: light)" },
+      { url: "/logo-white.png", media: "(prefers-color-scheme: dark)" },
+    ],
     apple: "/logo.png",
   },
 };
