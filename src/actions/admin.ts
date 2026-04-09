@@ -335,6 +335,79 @@ export async function createSitePageAction(formData: FormData) {
   redirect("/admin/pages?message=Pagina creada");
 }
 
+export async function updateSitePageAction(formData: FormData) {
+  await requireAdmin();
+
+  const pageId = String(formData.get("pageId") || "");
+  const previousSlug = String(formData.get("previousSlug") || "");
+  const parsed = sitePageSchema.safeParse({
+    title: formData.get("title"),
+    slug: formData.get("slug"),
+    excerpt: String(formData.get("excerpt") || ""),
+    content: formData.get("content"),
+    isPublished: formData.get("isPublished") === "on",
+  });
+
+  if (!pageId || !parsed.success) {
+    redirect(`/admin/pages?edit=${pageId}&message=No se pudo actualizar la pagina`);
+  }
+
+  try {
+    await prisma.sitePage.update({
+      where: { id: pageId },
+      data: {
+        title: parsed.data.title,
+        slug: safeSlug(parsed.data.slug),
+        excerpt: parsed.data.excerpt || null,
+        content: parsed.data.content,
+        isPublished: parsed.data.isPublished,
+      },
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      redirect(`/admin/pages?edit=${pageId}&message=Ya existe una pagina con ese slug`);
+    }
+
+    redirect(`/admin/pages?edit=${pageId}&message=No se pudo actualizar la pagina`);
+  }
+
+  revalidatePath("/admin/pages");
+  revalidatePath("/");
+  if (previousSlug) {
+    revalidatePath(`/pages/${previousSlug}`);
+  }
+  revalidatePath(`/pages/${safeSlug(parsed.data.slug)}`);
+  redirect("/admin/pages?message=Pagina actualizada");
+}
+
+export async function deleteSitePageAction(formData: FormData) {
+  await requireAdmin();
+
+  const pageId = String(formData.get("pageId") || "");
+
+  if (!pageId) {
+    redirect("/admin/pages?message=No se pudo eliminar la pagina");
+  }
+
+  const page = await prisma.sitePage.findUnique({
+    where: { id: pageId },
+    select: { slug: true },
+  });
+
+  if (!page) {
+    redirect("/admin/pages?message=Pagina no encontrada");
+  }
+
+  await prisma.sitePage.delete({
+    where: { id: pageId },
+  });
+
+  revalidatePath("/admin/pages");
+  revalidatePath("/");
+  revalidatePath(`/pages/${page.slug}`);
+  redirect("/admin/pages?message=Pagina eliminada");
+}
+
 export async function createProductAction(formData: FormData) {
   await requireAdmin();
 

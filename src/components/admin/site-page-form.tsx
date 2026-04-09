@@ -3,7 +3,6 @@
 import { useRef, useState } from "react";
 import {
   Bold,
-  ImagePlus,
   Italic,
   Link2,
   List,
@@ -17,7 +16,7 @@ import {
   Undo2,
 } from "lucide-react";
 
-import { createSitePageAction } from "@/actions/admin";
+import { createSitePageAction, updateSitePageAction } from "@/actions/admin";
 import { CloudinaryUploader } from "@/components/store/cloudinary-uploader";
 
 function ToolbarButton({
@@ -42,9 +41,20 @@ function ToolbarButton({
   );
 }
 
-export function SitePageForm() {
+type SitePageFormProps = {
+  page?: {
+    id: string;
+    title: string;
+    slug: string;
+    excerpt: string | null;
+    content: string;
+    isPublished: boolean;
+  } | null;
+};
+
+export function SitePageForm({ page = null }: SitePageFormProps) {
   const editorRef = useRef<HTMLDivElement | null>(null);
-  const [content, setContent] = useState("");
+  const [content, setContent] = useState(page?.content || "");
 
   function focusEditor() {
     editorRef.current?.focus();
@@ -78,11 +88,27 @@ export function SitePageForm() {
     setContent(editorRef.current?.innerHTML || "");
   }
 
+  const formAction = page ? updateSitePageAction : createSitePageAction;
+
   return (
-    <form action={createSitePageAction} className="grid gap-4 border border-slate-200 bg-white p-4">
+    <form action={formAction} className="grid gap-4 border border-slate-200 bg-white p-4">
+      {page ? <input type="hidden" name="pageId" value={page.id} /> : null}
+      {page ? <input type="hidden" name="previousSlug" value={page.slug} /> : null}
       <div className="grid gap-4 md:grid-cols-2">
-        <input name="title" placeholder="Titulo" className="border border-slate-200 px-3 py-2 text-sm" required />
-        <input name="slug" placeholder="slug-pagina" className="border border-slate-200 px-3 py-2 text-sm" required />
+        <input
+          name="title"
+          placeholder="Titulo"
+          className="border border-slate-200 px-3 py-2 text-sm"
+          defaultValue={page?.title || ""}
+          required
+        />
+        <input
+          name="slug"
+          placeholder="slug-pagina"
+          className="border border-slate-200 px-3 py-2 text-sm"
+          defaultValue={page?.slug || ""}
+          required
+        />
       </div>
 
       <textarea
@@ -90,6 +116,7 @@ export function SitePageForm() {
         placeholder="Resumen corto (opcional)"
         rows={2}
         className="border border-slate-200 px-3 py-2 text-sm"
+        defaultValue={page?.excerpt || ""}
       />
 
       <div className="border border-slate-200">
@@ -154,13 +181,14 @@ export function SitePageForm() {
           onInput={handleEditorInput}
           className="min-h-[360px] px-4 py-4 text-sm text-slate-800 outline-none [&_a]:text-blue-700 [&_a]:underline [&_h2]:mt-6 [&_h2]:text-3xl [&_h2]:font-serif [&_h2]:text-slate-950 [&_h3]:mt-5 [&_h3]:text-xl [&_h3]:font-semibold [&_img]:my-5 [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded-lg [&_li]:ml-5 [&_ol]:list-decimal [&_p]:my-3 [&_ul]:list-disc"
           data-placeholder="Escribe aqui el contenido de la pagina..."
+          dangerouslySetInnerHTML={{ __html: content }}
         />
       </div>
 
       <input type="hidden" name="content" value={content} />
 
       <label className="inline-flex items-center gap-2 text-sm text-slate-700">
-        <input type="checkbox" name="isPublished" defaultChecked />
+        <input type="checkbox" name="isPublished" defaultChecked={page ? page.isPublished : true} />
         Publicar pagina
       </label>
 
@@ -169,7 +197,7 @@ export function SitePageForm() {
           Puedes escribir texto, aplicar formato, agregar enlaces y subir imagenes directamente.
         </p>
         <button className="w-fit bg-slate-900 px-4 py-2 text-[11px] uppercase tracking-[0.2em] text-white">
-          Crear pagina
+          {page ? "Guardar cambios" : "Crear pagina"}
         </button>
       </div>
     </form>

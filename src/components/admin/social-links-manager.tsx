@@ -187,18 +187,20 @@ export function SocialLinksManager() {
                       <button
                         type="button"
                         onClick={() => openEdit(link)}
-                        className="inline-flex items-center gap-1 border border-slate-200 px-3 py-1.5 text-xs text-slate-700"
+                        className="inline-flex h-9 w-9 items-center justify-center border border-slate-300 text-slate-700 transition hover:bg-slate-900 hover:text-white"
+                        aria-label={`Editar ${link.platform}`}
+                        title="Editar"
                       >
-                        <Pencil className="h-3.5 w-3.5" />
-                        Editar
+                        <Pencil className="h-4 w-4" />
                       </button>
                       <button
                         type="button"
                         onClick={() => handleDelete(link)}
-                        className="inline-flex items-center gap-1 border border-rose-200 px-3 py-1.5 text-xs text-rose-700"
+                        className="inline-flex h-9 w-9 items-center justify-center border border-rose-200 text-rose-600 transition hover:bg-rose-600 hover:text-white"
+                        aria-label={`Eliminar ${link.platform}`}
+                        title="Eliminar"
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
-                        Eliminar
+                        <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
                   </td>
