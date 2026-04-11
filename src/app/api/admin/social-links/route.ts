@@ -43,11 +43,10 @@ export async function POST(request: Request) {
 
     return Response.json({ ok: true, link });
   } catch (error) {
+    console.error("Failed to create social link", error);
+
     return Response.json(
-      {
-        message:
-          error instanceof Error ? error.message : "No se pudo crear la red social.",
-      },
+      { message: "No se pudo crear la red social." },
       { status: 500 },
     );
   }

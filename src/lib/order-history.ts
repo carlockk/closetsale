@@ -13,6 +13,20 @@ export async function getOrdersForUser(userId: string) {
     include: {
       items: {
         orderBy: { id: "asc" },
+        include: {
+          product: {
+            select: {
+              slug: true,
+              images: {
+                orderBy: { sortOrder: "asc" },
+                take: 1,
+                select: {
+                  url: true,
+                },
+              },
+            },
+          },
+        },
       },
     },
   });
@@ -45,6 +59,13 @@ export async function getOrderForViewer(orderNumber: string, viewer: Viewer) {
           product: {
             select: {
               slug: true,
+              images: {
+                orderBy: { sortOrder: "asc" },
+                take: 1,
+                select: {
+                  url: true,
+                },
+              },
             },
           },
         },

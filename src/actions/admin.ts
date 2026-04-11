@@ -16,6 +16,15 @@ import {
   userSchema,
 } from "@/lib/validations";
 
+function parseJsonArray(rawValue: FormDataEntryValue | null) {
+  try {
+    const parsed = JSON.parse(String(rawValue || "[]"));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 function buildAdminCategoriesHref(params: Record<string, string | null | undefined>) {
   const query = new URLSearchParams();
 
@@ -261,14 +270,23 @@ export async function createUserAction(formData: FormData) {
   }
 
   const passwordHash = await bcrypt.hash(parsed.data.password, 10);
-  await prisma.user.create({
-    data: {
-      name: parsed.data.name,
-      email: parsed.data.email,
-      passwordHash,
-      role: parsed.data.role,
-    },
-  });
+
+  try {
+    await prisma.user.create({
+      data: {
+        name: parsed.data.name,
+        email: parsed.data.email,
+        passwordHash,
+        role: parsed.data.role,
+      },
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      redirect("/admin/users?message=El correo ya existe");
+    }
+
+    redirect("/admin/users?message=No se pudo crear el usuario");
+  }
 
   revalidatePath("/admin/users");
   redirect("/admin/users?message=Usuario creado");
@@ -320,15 +338,23 @@ export async function createSitePageAction(formData: FormData) {
     redirect("/admin/pages?message=No se pudo crear la pagina");
   }
 
-  await prisma.sitePage.create({
-    data: {
-      title: parsed.data.title,
-      slug: safeSlug(parsed.data.slug),
-      excerpt: parsed.data.excerpt || null,
-      content: parsed.data.content,
-      isPublished: parsed.data.isPublished,
-    },
-  });
+  try {
+    await prisma.sitePage.create({
+      data: {
+        title: parsed.data.title,
+        slug: safeSlug(parsed.data.slug),
+        excerpt: parsed.data.excerpt || null,
+        content: parsed.data.content,
+        isPublished: parsed.data.isPublished,
+      },
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      redirect("/admin/pages?message=Ya existe una pagina con ese slug");
+    }
+
+    redirect("/admin/pages?message=No se pudo crear la pagina");
+  }
 
   revalidatePath("/admin/pages");
   revalidatePath("/");
@@ -411,9 +437,6 @@ export async function deleteSitePageAction(formData: FormData) {
 export async function createProductAction(formData: FormData) {
   await requireAdmin();
 
-  const rawImages = String(formData.get("imageUrls") || "[]");
-  const rawVariants = String(formData.get("variants") || "[]");
-
   const parsed = productSchema.safeParse({
     title: formData.get("title"),
     slug: formData.get("slug") || safeSlug(String(formData.get("title") || "")),
@@ -423,37 +446,45 @@ export async function createProductAction(formData: FormData) {
     brand: formData.get("brand"),
     color: formData.get("color"),
     categoryId: formData.get("categoryId"),
-    imageUrls: JSON.parse(rawImages),
-    variants: JSON.parse(rawVariants),
+    imageUrls: parseJsonArray(formData.get("imageUrls")),
+    variants: parseJsonArray(formData.get("variants")),
   });
 
   if (!parsed.success) {
     redirect("/admin/products?message=No se pudo crear el producto");
   }
 
-  await prisma.product.create({
-    data: {
-      title: parsed.data.title,
-      slug: safeSlug(parsed.data.slug),
-      description: parsed.data.description,
-      price: parsed.data.price,
-      compareAtPrice: parsed.data.compareAtPrice || null,
-      brand: parsed.data.brand || null,
-      color: parsed.data.color || null,
-      categoryId: parsed.data.categoryId,
-      status: "ACTIVE",
-      images: {
-        create: parsed.data.imageUrls.map((url, index) => ({
-          url,
-          alt: parsed.data.title,
-          sortOrder: index,
-        })),
+  try {
+    await prisma.product.create({
+      data: {
+        title: parsed.data.title,
+        slug: safeSlug(parsed.data.slug),
+        description: parsed.data.description,
+        price: parsed.data.price,
+        compareAtPrice: parsed.data.compareAtPrice || null,
+        brand: parsed.data.brand || null,
+        color: parsed.data.color || null,
+        categoryId: parsed.data.categoryId,
+        status: "ACTIVE",
+        images: {
+          create: parsed.data.imageUrls.map((url, index) => ({
+            url,
+            alt: parsed.data.title,
+            sortOrder: index,
+          })),
+        },
+        variants: {
+          create: parsed.data.variants,
+        },
       },
-      variants: {
-        create: parsed.data.variants,
-      },
-    },
-  });
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      redirect("/admin/products?message=Ya existe un producto con ese slug o SKU");
+    }
+
+    redirect("/admin/products?message=No se pudo crear el producto");
+  }
 
   revalidatePath("/admin/products");
   revalidatePath("/products");
@@ -465,8 +496,6 @@ export async function updateProductAction(formData: FormData) {
   await requireAdmin();
 
   const productId = String(formData.get("productId") || "");
-  const rawImages = String(formData.get("imageUrls") || "[]");
-  const rawVariants = String(formData.get("variants") || "[]");
 
   const parsed = productSchema.safeParse({
     title: formData.get("title"),
@@ -477,39 +506,47 @@ export async function updateProductAction(formData: FormData) {
     brand: formData.get("brand"),
     color: formData.get("color"),
     categoryId: formData.get("categoryId"),
-    imageUrls: JSON.parse(rawImages),
-    variants: JSON.parse(rawVariants),
+    imageUrls: parseJsonArray(formData.get("imageUrls")),
+    variants: parseJsonArray(formData.get("variants")),
   });
 
   if (!productId || !parsed.success) {
     redirect(`/admin/products?edit=${productId}&message=No se pudo actualizar el producto`);
   }
 
-  await prisma.product.update({
-    where: { id: productId },
-    data: {
-      title: parsed.data.title,
-      slug: safeSlug(parsed.data.slug),
-      description: parsed.data.description,
-      price: parsed.data.price,
-      compareAtPrice: parsed.data.compareAtPrice || null,
-      brand: parsed.data.brand || null,
-      color: parsed.data.color || null,
-      categoryId: parsed.data.categoryId,
-      images: {
-        deleteMany: {},
-        create: parsed.data.imageUrls.map((url, index) => ({
-          url,
-          alt: parsed.data.title,
-          sortOrder: index,
-        })),
+  try {
+    await prisma.product.update({
+      where: { id: productId },
+      data: {
+        title: parsed.data.title,
+        slug: safeSlug(parsed.data.slug),
+        description: parsed.data.description,
+        price: parsed.data.price,
+        compareAtPrice: parsed.data.compareAtPrice || null,
+        brand: parsed.data.brand || null,
+        color: parsed.data.color || null,
+        categoryId: parsed.data.categoryId,
+        images: {
+          deleteMany: {},
+          create: parsed.data.imageUrls.map((url, index) => ({
+            url,
+            alt: parsed.data.title,
+            sortOrder: index,
+          })),
+        },
+        variants: {
+          deleteMany: {},
+          create: parsed.data.variants,
+        },
       },
-      variants: {
-        deleteMany: {},
-        create: parsed.data.variants,
-      },
-    },
-  });
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      redirect(`/admin/products?edit=${productId}&message=Ya existe un producto con ese slug o SKU`);
+    }
+
+    redirect(`/admin/products?edit=${productId}&message=No se pudo actualizar el producto`);
+  }
 
   revalidatePath("/admin/products");
   revalidatePath("/products");

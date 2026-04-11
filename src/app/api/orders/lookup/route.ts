@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
         unitPrice: Number(item.unitPrice),
         lineTotal: Number(item.lineTotal),
         productSlug: item.product.slug,
+        imageUrl: item.product.images[0]?.url || null,
       })),
     },
   });

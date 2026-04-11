@@ -20,6 +20,7 @@ export default async function OrdersPage() {
           id: item.id,
           title: item.title,
           quantity: item.quantity,
+          imageUrl: item.product.images[0]?.url || null,
         })),
       }))}
       isAuthenticated={Boolean(session?.userId)}

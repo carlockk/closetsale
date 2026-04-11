@@ -34,7 +34,7 @@ export function AddToCartPanel({ product }: AddToCartPanelProps) {
   const unitPrice = Number(product.price) + Number(selectedVariant?.priceDelta || 0);
 
   return (
-    <div className="rounded-[1rem] border border-stone-200 bg-white p-6 shadow-sm">
+    <div className="border-t border-stone-200 pt-6">
       <p className="text-3xl font-semibold text-stone-950">{formatCurrency(unitPrice)}</p>
 
       {product.variants.length > 0 ? (
@@ -46,10 +46,10 @@ export function AddToCartPanel({ product }: AddToCartPanelProps) {
                 key={variant.id}
                 type="button"
                 onClick={() => setSelectedVariantId(variant.id)}
-                className={`rounded-full px-4 py-2 text-sm transition ${
+                className={`border px-4 py-2 text-sm transition ${
                   variant.id === selectedVariantId
-                    ? "bg-stone-900 text-white"
-                    : "bg-stone-100 text-stone-700"
+                    ? "border-stone-900 bg-stone-900 text-white"
+                    : "border-stone-200 bg-white text-stone-700"
                 }`}
               >
                 {variant.name}: {variant.value}
@@ -65,7 +65,7 @@ export function AddToCartPanel({ product }: AddToCartPanelProps) {
           min={1}
           value={quantity}
           onChange={(event) => setQuantity(Number(event.target.value))}
-          className="w-24 rounded-full border border-stone-200 px-4 py-3 outline-none"
+          className="w-24 border border-stone-200 px-4 py-3 text-stone-900 outline-none transition focus:border-stone-900"
         />
         <button
           type="button"
@@ -84,7 +84,7 @@ export function AddToCartPanel({ product }: AddToCartPanelProps) {
             });
             toast.success("Producto agregado al carrito");
           }}
-          className="flex-1 rounded-full bg-stone-900 px-6 py-3 text-sm font-medium uppercase tracking-[0.22em] text-white transition hover:bg-stone-700"
+          className="flex-1 bg-stone-900 px-6 py-3 text-sm font-medium uppercase tracking-[0.22em] text-white transition hover:bg-stone-800"
         >
           Agregar al carrito
         </button>

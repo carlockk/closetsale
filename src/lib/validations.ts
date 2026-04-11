@@ -1,24 +1,32 @@
 import { z } from "zod";
 
+const PASSWORD_MIN_LENGTH = 8;
+const emailSchema = z.string().trim().toLowerCase().email("Correo invalido");
+const optionalPasswordSchema = z
+  .string()
+  .trim()
+  .optional()
+  .transform((value) => value || "")
+  .refine(
+    (value) => value === "" || value.length >= PASSWORD_MIN_LENGTH,
+    `Minimo ${PASSWORD_MIN_LENGTH} caracteres`,
+  );
+
 export const loginSchema = z.object({
-  email: z.email("Correo invalido"),
+  email: emailSchema,
   password: z.string().min(6, "Minimo 6 caracteres"),
 });
 
 export const registerSchema = z.object({
-  name: z.string().min(2, "Ingresa tu nombre"),
-  email: z.email("Correo invalido"),
-  password: z.string().min(6, "Minimo 6 caracteres"),
+  name: z.string().trim().min(2, "Ingresa tu nombre"),
+  email: emailSchema,
+  password: z.string().min(PASSWORD_MIN_LENGTH, `Minimo ${PASSWORD_MIN_LENGTH} caracteres`),
 });
 
 export const profileSchema = z.object({
-  name: z.string().min(2, "Nombre requerido"),
-  email: z.email("Correo invalido"),
-  password: z
-    .string()
-    .trim()
-    .optional()
-    .transform((value) => value || ""),
+  name: z.string().trim().min(2, "Nombre requerido"),
+  email: emailSchema,
+  password: optionalPasswordSchema,
 });
 
 export const categorySchema = z.object({
@@ -49,9 +57,9 @@ export const productSchema = z.object({
 });
 
 export const userSchema = z.object({
-  name: z.string().min(2, "Nombre requerido"),
-  email: z.email("Correo invalido"),
-  password: z.string().min(6, "Minimo 6 caracteres"),
+  name: z.string().trim().min(2, "Nombre requerido"),
+  email: emailSchema,
+  password: z.string().min(PASSWORD_MIN_LENGTH, `Minimo ${PASSWORD_MIN_LENGTH} caracteres`),
   role: z.enum(["ADMIN", "USER"]),
 });
 
@@ -93,11 +101,11 @@ export const sitePageSchema = z.object({
 });
 
 export const checkoutSchema = z.object({
-  customerName: z.string().min(2, "Nombre requerido"),
-  customerEmail: z.email("Correo invalido"),
-  customerPhone: z.string().optional(),
-  shippingAddress: z.string().min(5, "Direccion requerida"),
-  notes: z.string().optional(),
+  customerName: z.string().trim().min(2, "Nombre requerido"),
+  customerEmail: emailSchema,
+  customerPhone: z.string().trim().optional(),
+  shippingAddress: z.string().trim().min(5, "Direccion requerida"),
+  notes: z.string().trim().optional(),
   items: z.array(
     z.object({
       productId: z.string(),

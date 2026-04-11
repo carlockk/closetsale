@@ -11,6 +11,7 @@ export default async function CheckoutPage({ searchParams }: CheckoutPageProps) 
       message={params.message}
       orderNumber={params.orderNumber}
       email={params.email}
+      isMercadoPagoReady={Boolean(process.env.MERCADO_PAGO_ACCESS_TOKEN?.trim())}
     />
   );
 }

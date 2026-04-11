@@ -187,11 +187,12 @@ export async function getAdminDashboardData(from?: string, to?: string) {
     prisma.category.count(),
   ]);
 
-  const totalSales = orders.reduce((sum, order) => sum + Number(order.total), 0);
+  const paidOrders = orders.filter((order) => order.status === "PAID");
+  const totalSales = paidOrders.reduce((sum, order) => sum + Number(order.total), 0);
   const totalOrders = orders.length;
 
   const salesByDay = Object.values(
-    orders.reduce<Record<string, { date: string; total: number; orders: number }>>(
+    paidOrders.reduce<Record<string, { date: string; total: number; orders: number }>>(
       (acc, order) => {
         const key = order.createdAt.toISOString().slice(0, 10);
         if (!acc[key]) {

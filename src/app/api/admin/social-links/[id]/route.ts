@@ -43,11 +43,10 @@ export async function PATCH(request: Request, context: RouteContext) {
 
     return Response.json({ ok: true });
   } catch (error) {
+    console.error("Failed to update social link", error);
+
     return Response.json(
-      {
-        message:
-          error instanceof Error ? error.message : "No se pudo actualizar la red social.",
-      },
+      { message: "No se pudo actualizar la red social." },
       { status: 500 },
     );
   }
@@ -74,11 +73,10 @@ export async function DELETE(_: Request, context: RouteContext) {
 
     return Response.json({ ok: true });
   } catch (error) {
+    console.error("Failed to delete social link", error);
+
     return Response.json(
-      {
-        message:
-          error instanceof Error ? error.message : "No se pudo eliminar la red social.",
-      },
+      { message: "No se pudo eliminar la red social." },
       { status: 500 },
     );
   }

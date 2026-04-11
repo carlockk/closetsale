@@ -2,11 +2,10 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 
+import { getAuthSecret } from "@/lib/auth-secret";
 import { SESSION_COOKIE } from "@/lib/constants";
 
-const secret = new TextEncoder().encode(
-  process.env.AUTH_SECRET || "closetsale-dev-secret",
-);
+const secret = new TextEncoder().encode(getAuthSecret());
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;

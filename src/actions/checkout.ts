@@ -4,8 +4,21 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { getCurrentUser } from "@/lib/auth";
+import {
+  createMercadoPagoPreference,
+  isMercadoPagoConfigured,
+} from "@/lib/mercadopago";
 import { prisma } from "@/lib/prisma";
 import { checkoutSchema } from "@/lib/validations";
+
+function parseCheckoutItems(rawItems: FormDataEntryValue | null) {
+  try {
+    const parsed = JSON.parse(String(rawItems || "[]"));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
 
 export async function checkoutAction(formData: FormData) {
   const parsed = checkoutSchema.safeParse({
@@ -14,7 +27,7 @@ export async function checkoutAction(formData: FormData) {
     customerPhone: formData.get("customerPhone"),
     shippingAddress: formData.get("shippingAddress"),
     notes: formData.get("notes"),
-    items: JSON.parse(String(formData.get("items") || "[]")),
+    items: parseCheckoutItems(formData.get("items")),
   });
 
   if (!parsed.success || parsed.data.items.length === 0) {
@@ -53,8 +66,9 @@ export async function checkoutAction(formData: FormData) {
   const subtotal = items.reduce((sum, item) => sum + item.lineTotal, 0);
 
   const orderNumber = `CS-${Date.now()}`;
+  const shouldUseMercadoPago = isMercadoPagoConfigured();
 
-  await prisma.order.create({
+  const order = await prisma.order.create({
     data: {
       orderNumber,
       customerName: parsed.data.customerName,
@@ -64,13 +78,39 @@ export async function checkoutAction(formData: FormData) {
       notes: parsed.data.notes || null,
       subtotal,
       total: subtotal,
-      status: "PAID",
+      status: shouldUseMercadoPago ? "PENDING" : "PAID",
+      paymentProvider: shouldUseMercadoPago ? "MERCADO_PAGO" : null,
       userId: currentUser?.id || null,
       items: {
         create: items,
       },
     },
   });
+
+  if (shouldUseMercadoPago) {
+    const preference = await createMercadoPagoPreference({
+      orderNumber,
+      customerName: parsed.data.customerName,
+      customerEmail: parsed.data.customerEmail,
+      items: items.map((item) => ({
+        id: item.variantId || item.productId,
+        title: item.title,
+        quantity: item.quantity,
+        unit_price: item.unitPrice,
+        currency_id: "CLP",
+      })),
+    });
+
+    await prisma.order.update({
+      where: { id: order.id },
+      data: {
+        paymentReference: preference.id,
+        paymentUrl: preference.initPoint,
+      },
+    });
+
+    redirect(preference.initPoint);
+  }
 
   revalidatePath("/admin");
   revalidatePath("/");

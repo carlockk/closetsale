@@ -53,6 +53,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
                 <th className="px-4 py-3 font-medium">Orden</th>
                 <th className="px-4 py-3 font-medium">Cliente</th>
                 <th className="px-4 py-3 font-medium">Correo</th>
+                <th className="px-4 py-3 font-medium">Estado</th>
                 <th className="px-4 py-3 font-medium">Total</th>
               </tr>
             </thead>
@@ -62,6 +63,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
                   <td className="px-4 py-3 font-medium text-slate-950">{order.orderNumber}</td>
                   <td className="px-4 py-3">{order.customerName}</td>
                   <td className="px-4 py-3">{order.customerEmail}</td>
+                  <td className="px-4 py-3">{order.status}</td>
                   <td className="px-4 py-3 font-semibold text-slate-950">{formatCurrency(Number(order.total))}</td>
                 </tr>
               ))}

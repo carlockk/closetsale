@@ -2,18 +2,18 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { SignJWT, jwtVerify } from "jose";
 
-import { prisma } from "@/lib/prisma";
+import { getAuthSecret } from "@/lib/auth-secret";
 import { SESSION_COOKIE } from "@/lib/constants";
+import { prisma } from "@/lib/prisma";
 
-const secret = new TextEncoder().encode(
-  process.env.AUTH_SECRET || "closetsale-dev-secret",
-);
+const secret = new TextEncoder().encode(getAuthSecret());
 
 type SessionPayload = {
   userId: string;
   role: "ADMIN" | "USER";
   email: string;
   name: string;
+  sessionVersion: number;
 };
 
 export async function createSession(payload: SessionPayload) {
@@ -48,7 +48,31 @@ export async function getSession() {
 
   try {
     const { payload } = await jwtVerify(token, secret);
-    return payload as unknown as SessionPayload;
+    const session = payload as unknown as SessionPayload;
+
+    const user = await prisma.user.findUnique({
+      where: { id: session.userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        sessionVersion: true,
+      },
+    });
+
+    if (!user || user.sessionVersion !== session.sessionVersion) {
+      store.delete(SESSION_COOKIE);
+      return null;
+    }
+
+    return {
+      userId: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      sessionVersion: user.sessionVersion,
+    } satisfies SessionPayload;
   } catch {
     return null;
   }

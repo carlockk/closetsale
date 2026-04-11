@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
@@ -17,6 +18,7 @@ type OrderSummary = {
     id: string;
     title: string;
     quantity: number;
+    imageUrl?: string | null;
   }>;
 };
 
@@ -31,6 +33,7 @@ type GuestOrderReference = {
 };
 
 const GUEST_ORDERS_KEY = "closetsale_guest_orders";
+const ORDER_CARD_LAYOUT_THRESHOLD = 4;
 
 export function saveGuestOrderReference(reference: GuestOrderReference) {
   if (typeof window === "undefined") {
@@ -119,6 +122,7 @@ export function OrderHistoryPage({
     () => (isAuthenticated ? initialOrders : guestOrders),
     [guestOrders, initialOrders, isAuthenticated],
   );
+  const useCardLayout = orders.length >= ORDER_CARD_LAYOUT_THRESHOLD;
 
   return (
     <div className="bg-white">
@@ -138,6 +142,72 @@ export function OrderHistoryPage({
         ) : orders.length === 0 ? (
           <div className="mt-8 border border-stone-200 px-6 py-10 text-stone-600">
             Aun no tienes compras registradas.
+          </div>
+        ) : useCardLayout ? (
+          <div className="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+            {orders.map((order) => (
+              <article key={order.id} className="border border-stone-200 p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-xs uppercase tracking-[0.24em] text-stone-400">
+                      Pedido {order.orderNumber}
+                    </p>
+                    <p className="mt-2 text-base font-medium text-stone-950">
+                      {order.customerName}
+                    </p>
+                    <p className="mt-1 text-sm text-stone-500">
+                      {new Date(order.createdAt).toLocaleString("es-CL")}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-xs uppercase tracking-[0.24em] text-stone-400">
+                      Estado
+                    </p>
+                    <p className="mt-2 text-sm font-medium text-stone-900">{order.status}</p>
+                    <p className="mt-3 text-xl font-semibold text-stone-950">
+                      {formatCurrency(order.total)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-5 space-y-3 border-t border-stone-200 pt-4 text-sm text-stone-600">
+                  {order.items.slice(0, 3).map((item) => (
+                    <div key={item.id} className="flex items-center gap-3">
+                      <div className="h-14 w-12 shrink-0 overflow-hidden bg-stone-100">
+                        {item.imageUrl ? (
+                          <Image
+                            src={item.imageUrl}
+                            alt={item.title}
+                            width={160}
+                            height={200}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : null}
+                      </div>
+                      <p className="min-w-0">
+                        {item.title} x{item.quantity}
+                      </p>
+                    </div>
+                  ))}
+                  {order.items.length > 3 ? (
+                    <p className="text-stone-400">y {order.items.length - 3} item(s) mas</p>
+                  ) : null}
+                </div>
+
+                <div className="mt-5">
+                  <Link
+                    href={
+                      isAuthenticated
+                        ? `/orders/${order.orderNumber}`
+                        : `/orders/${order.orderNumber}?email=${encodeURIComponent(order.customerEmail)}`
+                    }
+                    className="inline-flex border border-stone-900 px-5 py-2 text-sm uppercase tracking-[0.2em] text-stone-900 transition hover:bg-stone-900 hover:text-white"
+                  >
+                    Ver detalle
+                  </Link>
+                </div>
+              </article>
+            ))}
           </div>
         ) : (
           <div className="mt-8 divide-y divide-stone-200 border-y border-stone-200">
@@ -166,11 +236,24 @@ export function OrderHistoryPage({
                   </div>
                 </div>
 
-                <div className="mt-5 space-y-2 text-sm text-stone-600">
+                <div className="mt-5 space-y-3 text-sm text-stone-600">
                   {order.items.slice(0, 3).map((item) => (
-                    <p key={item.id}>
-                      {item.title} x{item.quantity}
-                    </p>
+                    <div key={item.id} className="flex items-center gap-3">
+                      <div className="h-14 w-12 shrink-0 overflow-hidden bg-stone-100">
+                        {item.imageUrl ? (
+                          <Image
+                            src={item.imageUrl}
+                            alt={item.title}
+                            width={160}
+                            height={200}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : null}
+                      </div>
+                      <p>
+                        {item.title} x{item.quantity}
+                      </p>
+                    </div>
                   ))}
                   {order.items.length > 3 ? (
                     <p className="text-stone-400">y {order.items.length - 3} item(s) mas</p>

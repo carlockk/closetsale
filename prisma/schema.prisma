@@ -28,6 +28,10 @@ enum OrderStatus {
   CANCELLED
 }
 
+enum PaymentProvider {
+  MERCADO_PAGO
+}
+
 enum ChatMessageRole {
   ADMIN
   USER
@@ -39,11 +43,22 @@ model User {
   name         String
   email        String   @unique
   passwordHash String
+  sessionVersion Int    @default(0)
   role         UserRole @default(USER)
   orders       Order[]
   chatMessages ChatMessage[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+model AuthRateLimit {
+  key       String   @id
+  count     Int      @default(0)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([expiresAt])
 }
 
 model SiteMenu {
@@ -168,7 +183,13 @@ model Order {
   notes           String?
   subtotal        Decimal     @db.Decimal(10, 2)
   total           Decimal     @db.Decimal(10, 2)
-  status          OrderStatus @default(PAID)
+  status          OrderStatus @default(PENDING)
+  paymentProvider PaymentProvider?
+  paymentReference String?
+  paymentId       String?
+  paymentStatusDetail String?
+  paymentUrl      String?
+  paidAt          DateTime?
   userId          String?
   user            User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
   items           OrderItem[]
