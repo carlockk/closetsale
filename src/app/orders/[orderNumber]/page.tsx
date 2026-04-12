@@ -2,20 +2,24 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { OrderDetailPaymentState } from "@/components/store/order-detail-payment-state";
 import { getSession } from "@/lib/auth";
 import { getOrderForViewer } from "@/lib/order-history";
 import { formatCurrency } from "@/lib/utils";
 
 type OrderDetailPageProps = {
   params: Promise<{ orderNumber: string }>;
-  searchParams: Promise<{ email?: string }>;
+  searchParams: Promise<{ email?: string; payment?: string; message?: string }>;
 };
 
 export default async function OrderDetailPage({
   params,
   searchParams,
 }: OrderDetailPageProps) {
-  const [{ orderNumber }, { email }] = await Promise.all([params, searchParams]);
+  const [{ orderNumber }, { email, payment, message }] = await Promise.all([
+    params,
+    searchParams,
+  ]);
   const session = await getSession();
   const order = await getOrderForViewer(orderNumber, {
     userId: session?.userId || null,
@@ -28,6 +32,11 @@ export default async function OrderDetailPage({
 
   return (
     <div className="bg-white">
+      <OrderDetailPaymentState
+        email={email || order.customerEmail}
+        orderNumber={order.orderNumber}
+        payment={payment}
+      />
       <div className="mx-auto max-w-7xl px-4 py-10 lg:px-8">
         <div className="border-b border-stone-200 pb-6">
           <p className="text-xs uppercase tracking-[0.32em] text-stone-400">Compra</p>
@@ -36,6 +45,41 @@ export default async function OrderDetailPage({
             {new Date(order.createdAt).toLocaleString("es-CL")} · {order.status}
           </p>
         </div>
+
+        {payment || message ? (
+          <div className="mt-8 border border-stone-200 px-5 py-5 text-stone-700">
+            <p className="text-xs uppercase tracking-[0.24em] text-stone-400">Pago</p>
+            <p className="mt-2 font-serif text-2xl text-stone-950">
+              {message ||
+                (payment === "approved"
+                  ? "Pedido confirmado"
+                  : payment === "cancelled"
+                    ? "No se pudo completar el pago"
+                    : "Tu pago esta pendiente de confirmacion")}
+            </p>
+            <p className="mt-3 text-sm text-stone-600">
+              {payment === "approved"
+                ? "Tu compra ya esta registrada. Desde aqui puedes revisar el detalle y seguir navegando."
+                : payment === "cancelled"
+                  ? "Puedes revisar este pedido y, si quieres, volver a intentarlo mas tarde."
+                  : "Mercado Pago aun esta procesando la transaccion. Este pedido se actualizara cuando la confirmacion termine."}
+            </p>
+            <div className="mt-5 flex flex-wrap items-center gap-4">
+              <Link
+                href="/"
+                className="bg-stone-900 px-5 py-2 text-sm uppercase tracking-[0.2em] text-white transition hover:bg-stone-800"
+              >
+                Ir a inicio
+              </Link>
+              <Link
+                href="/orders"
+                className="text-sm uppercase tracking-[0.18em] text-stone-600 underline-offset-4 hover:text-stone-950 hover:underline"
+              >
+                Ver mis compras
+              </Link>
+            </div>
+          </div>
+        ) : null}
 
         <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1fr)_320px]">
           <section className="min-w-0">
@@ -119,12 +163,20 @@ export default async function OrderDetailPage({
             </div>
 
             <div className="pt-6">
-              <Link
-                href="/orders"
-                className="inline-flex border border-stone-900 px-5 py-2 text-sm uppercase tracking-[0.2em] text-stone-900 transition hover:bg-stone-900 hover:text-white"
-              >
-                Volver a mis compras
-              </Link>
+              <div className="flex flex-wrap items-center gap-4">
+                <Link
+                  href="/orders"
+                  className="inline-flex border border-stone-900 px-5 py-2 text-sm uppercase tracking-[0.2em] text-stone-900 transition hover:bg-stone-900 hover:text-white"
+                >
+                  Volver a mis compras
+                </Link>
+                <Link
+                  href="/"
+                  className="text-sm uppercase tracking-[0.18em] text-stone-600 underline-offset-4 hover:text-stone-950 hover:underline"
+                >
+                  Ir a inicio
+                </Link>
+              </div>
             </div>
           </aside>
         </div>
