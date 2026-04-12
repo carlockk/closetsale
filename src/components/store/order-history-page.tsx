@@ -33,6 +33,7 @@ type GuestOrderReference = {
 };
 
 const GUEST_ORDERS_KEY = "closetsale_guest_orders";
+const ARCHIVED_ORDERS_KEY = "closetsale_archived_orders";
 const ORDER_CARD_LAYOUT_THRESHOLD = 4;
 
 export function saveGuestOrderReference(reference: GuestOrderReference) {
@@ -63,12 +64,42 @@ function readGuestOrderReferences(): GuestOrderReference[] {
   }
 }
 
+function readArchivedOrderNumbers(): string[] {
+  if (typeof window === "undefined") {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(localStorage.getItem(ARCHIVED_ORDERS_KEY) || "[]");
+    return Array.isArray(parsed) ? parsed.filter((item) => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeArchivedOrderNumbers(orderNumbers: string[]) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  localStorage.setItem(
+    ARCHIVED_ORDERS_KEY,
+    JSON.stringify(Array.from(new Set(orderNumbers))),
+  );
+}
+
 export function OrderHistoryPage({
   initialOrders,
   isAuthenticated,
 }: OrderHistoryPageProps) {
   const [guestOrders, setGuestOrders] = useState<OrderSummary[]>([]);
   const [loading, setLoading] = useState(!isAuthenticated);
+  const [archivedOrders, setArchivedOrders] = useState<string[]>([]);
+  const [showArchived, setShowArchived] = useState(false);
+
+  useEffect(() => {
+    setArchivedOrders(readArchivedOrderNumbers());
+  }, []);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -122,7 +153,34 @@ export function OrderHistoryPage({
     () => (isAuthenticated ? initialOrders : guestOrders),
     [guestOrders, initialOrders, isAuthenticated],
   );
-  const useCardLayout = orders.length >= ORDER_CARD_LAYOUT_THRESHOLD;
+  const visibleOrders = useMemo(
+    () =>
+      orders.filter((order) =>
+        showArchived ? true : !archivedOrders.includes(order.orderNumber),
+      ),
+    [archivedOrders, orders, showArchived],
+  );
+  const archivedVisibleCount = useMemo(
+    () => orders.filter((order) => archivedOrders.includes(order.orderNumber)).length,
+    [archivedOrders, orders],
+  );
+  const useCardLayout = visibleOrders.length >= ORDER_CARD_LAYOUT_THRESHOLD;
+
+  function archiveOrder(orderNumber: string) {
+    setArchivedOrders((current) => {
+      const next = [...current, orderNumber];
+      writeArchivedOrderNumbers(next);
+      return Array.from(new Set(next));
+    });
+  }
+
+  function restoreOrder(orderNumber: string) {
+    setArchivedOrders((current) => {
+      const next = current.filter((item) => item !== orderNumber);
+      writeArchivedOrderNumbers(next);
+      return next;
+    });
+  }
 
   return (
     <div className="bg-white">
@@ -135,17 +193,34 @@ export function OrderHistoryPage({
           </p>
         </div>
 
+        {archivedVisibleCount > 0 ? (
+          <div className="mt-6 flex flex-wrap items-center gap-4 border border-stone-200 px-5 py-4 text-sm text-stone-600">
+            <p>
+              Tienes {archivedVisibleCount} pedido(s) archivado(s) ocultos de esta vista.
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowArchived((current) => !current)}
+              className="text-sm uppercase tracking-[0.18em] text-stone-950 underline-offset-4 hover:underline"
+            >
+              {showArchived ? "Ocultar archivados" : "Mostrar archivados"}
+            </button>
+          </div>
+        ) : null}
+
         {loading ? (
           <div className="mt-8 border border-stone-200 px-6 py-10 text-stone-600">
             Cargando compras...
           </div>
-        ) : orders.length === 0 ? (
+        ) : visibleOrders.length === 0 ? (
           <div className="mt-8 border border-stone-200 px-6 py-10 text-stone-600">
-            Aun no tienes compras registradas.
+            {orders.length === 0
+              ? "Aun no tienes compras registradas."
+              : "No hay compras visibles con el filtro actual."}
           </div>
         ) : useCardLayout ? (
           <div className="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-            {orders.map((order) => (
+            {visibleOrders.map((order) => (
               <article key={order.id} className="border border-stone-200 p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
@@ -194,7 +269,7 @@ export function OrderHistoryPage({
                   ) : null}
                 </div>
 
-                <div className="mt-5">
+                <div className="mt-5 flex flex-wrap items-center gap-4">
                   <Link
                     href={
                       isAuthenticated
@@ -205,13 +280,30 @@ export function OrderHistoryPage({
                   >
                     Ver detalle
                   </Link>
+                  {archivedOrders.includes(order.orderNumber) ? (
+                    <button
+                      type="button"
+                      onClick={() => restoreOrder(order.orderNumber)}
+                      className="text-sm uppercase tracking-[0.18em] text-stone-600 underline-offset-4 hover:text-stone-950 hover:underline"
+                    >
+                      Quitar archivo
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => archiveOrder(order.orderNumber)}
+                      className="text-sm uppercase tracking-[0.18em] text-stone-600 underline-offset-4 hover:text-stone-950 hover:underline"
+                    >
+                      Archivar
+                    </button>
+                  )}
                 </div>
               </article>
             ))}
           </div>
         ) : (
           <div className="mt-8 divide-y divide-stone-200 border-y border-stone-200">
-            {orders.map((order) => (
+            {visibleOrders.map((order) => (
               <article key={order.id} className="py-6">
                 <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
                   <div className="min-w-0">
@@ -260,7 +352,7 @@ export function OrderHistoryPage({
                   ) : null}
                 </div>
 
-                <div className="mt-5">
+                <div className="mt-5 flex flex-wrap items-center gap-4">
                   <Link
                     href={
                       isAuthenticated
@@ -271,6 +363,23 @@ export function OrderHistoryPage({
                   >
                     Ver detalle
                   </Link>
+                  {archivedOrders.includes(order.orderNumber) ? (
+                    <button
+                      type="button"
+                      onClick={() => restoreOrder(order.orderNumber)}
+                      className="text-sm uppercase tracking-[0.18em] text-stone-600 underline-offset-4 hover:text-stone-950 hover:underline"
+                    >
+                      Quitar archivo
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => archiveOrder(order.orderNumber)}
+                      className="text-sm uppercase tracking-[0.18em] text-stone-600 underline-offset-4 hover:text-stone-950 hover:underline"
+                    >
+                      Archivar
+                    </button>
+                  )}
                 </div>
               </article>
             ))}
