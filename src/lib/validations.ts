@@ -114,3 +114,5 @@ export const checkoutSchema = z.object({
     }),
   ),
 });
+
+export const orderStatusSchema = z.enum(["PENDING", "PAID", "CANCELLED"]);

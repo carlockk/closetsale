@@ -10,6 +10,7 @@ import { prisma } from "@/lib/prisma";
 import { safeSlug } from "@/lib/utils";
 import {
   categorySchema,
+  orderStatusSchema,
   productSchema,
   sitePageSchema,
   slideSchema,
@@ -582,4 +583,39 @@ export async function deleteProductAction(formData: FormData) {
   revalidatePath(`/products/${product.slug}`);
   revalidatePath("/");
   redirect("/admin/products?message=Producto eliminado");
+}
+
+export async function updateOrderStatusAction(formData: FormData) {
+  await requireAdmin();
+
+  const orderId = String(formData.get("orderId") || "");
+  const parsed = orderStatusSchema.safeParse(formData.get("status"));
+
+  if (!orderId || !parsed.success) {
+    redirect("/admin/orders?message=No se pudo actualizar el pedido");
+  }
+
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: { id: true, orderNumber: true },
+  });
+
+  if (!order) {
+    redirect("/admin/orders?message=Pedido no encontrado");
+  }
+
+  await prisma.order.update({
+    where: { id: order.id },
+    data: {
+      status: parsed.data,
+      paidAt: parsed.data === "PAID" ? new Date() : null,
+      paymentStatusDetail: "Actualizado manualmente desde admin",
+    },
+  });
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/orders");
+  revalidatePath("/orders");
+  revalidatePath(`/orders/${order.orderNumber}`);
+  redirect("/admin/orders?message=Pedido actualizado");
 }

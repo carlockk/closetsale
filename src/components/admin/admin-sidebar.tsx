@@ -11,6 +11,7 @@ const links = [
   { href: "/admin/social-links", label: "Redes" },
   { href: "/admin/categories", label: "Categorias" },
   { href: "/admin/products", label: "Productos" },
+  { href: "/admin/orders", label: "Pedidos" },
   { href: "/admin/messages", label: "Mensajes" },
   { href: "/admin/users", label: "Usuarios" },
   { href: "/admin/slider", label: "Slider" },
