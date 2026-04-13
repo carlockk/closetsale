@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { MessageCircle } from "lucide-react";
 
+import { AuthDrawer } from "@/components/auth-drawer";
+import { getCurrentSellerProfile, getSession } from "@/lib/auth";
 import { getSocialLinks } from "@/lib/social-links";
 
 function SocialIcon({ platform }: { platform: string }) {
@@ -55,20 +57,26 @@ function SocialIcon({ platform }: { platform: string }) {
 }
 
 export async function SiteFooter() {
-  const socialLinks = await getSocialLinks();
+  const [socialLinks, session, seller] = await Promise.all([
+    getSocialLinks(),
+    getSession(),
+    getCurrentSellerProfile(),
+  ]);
+  const sellerHref =
+    seller?.status === "ACTIVE" ? "/seller" : seller ? "/profile#seller" : "/vender";
 
   return (
-    <footer className="border-t border-stone-200 bg-[#f8f4ee]">
-      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 pt-20 text-sm text-stone-600 lg:grid-cols-3 lg:px-8">
+    <footer className="border-t border-white/10 bg-stone-950">
+      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 pt-20 text-sm text-stone-400 lg:grid-cols-4 lg:px-8">
         <div>
-          <p className="font-serif text-xl text-stone-900">ClosetSale</p>
+          <p className="font-serif text-xl text-white">ClosetSale</p>
           <p className="mt-3 max-w-sm">
             Ropa usada en excelente estado, seleccionada por estilo, calidad y
             segunda vida real para cada prenda.
           </p>
         </div>
         <div>
-          <p className="text-xs uppercase tracking-[0.3em] text-stone-400">Compra</p>
+          <p className="text-xs uppercase tracking-[0.3em] text-stone-500">Compra</p>
           <div className="mt-3 space-y-2">
             <p>Catalogo</p>
             <p>Favoritos</p>
@@ -76,34 +84,50 @@ export async function SiteFooter() {
           </div>
         </div>
         <div>
-          <p className="text-xs uppercase tracking-[0.3em] text-stone-400">Admin</p>
-          <div className="mt-3">
-            <Link href="/admin/login" className="text-stone-900 underline-offset-4 hover:underline">
-              Acceso al panel de administracion
-            </Link>
+          <p className="text-xs uppercase tracking-[0.3em] text-stone-500">Seller</p>
+          <div className="mt-3 space-y-3">
+            <p>Abre tu tienda y vende dentro de ClosetSale.</p>
+            {session ? (
+              <Link
+                href={sellerHref}
+                className="inline-flex items-center border-b border-white/40 pb-1 text-white transition hover:border-white hover:text-stone-200"
+              >
+                {seller?.status === "ACTIVE" ? "Ir a mi panel seller" : "Quiero ser seller"}
+              </Link>
+            ) : (
+              <AuthDrawer
+                isAuthenticated={false}
+                label="Quiero ser seller"
+                initialMode="register"
+                registerAsSeller
+                registerTitle="Crear cuenta seller"
+                registerDescription="Crea tu cuenta y deja iniciada tu solicitud seller desde este mismo panel."
+                triggerClassName="inline-flex items-center border-b border-white/40 pb-1 text-white transition hover:border-white hover:text-stone-200"
+              />
+            )}
           </div>
-          {socialLinks.length > 0 ? (
-            <div className="mt-5">
-              <p className="text-xs uppercase tracking-[0.3em] text-stone-400">Redes</p>
-              <div className="mt-3 flex flex-wrap gap-3">
-                {socialLinks.map((link) => {
-                  return (
-                    <Link
-                      key={link.id}
-                      href={link.href}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-stone-200 bg-white text-stone-700 transition hover:border-stone-900 hover:text-stone-900"
-                      aria-label={link.platform}
-                    >
-                      <SocialIcon platform={link.platform} />
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          ) : null}
         </div>
+        {socialLinks.length > 0 ? (
+          <div>
+            <p className="text-xs uppercase tracking-[0.3em] text-stone-500">Redes</p>
+            <div className="mt-3 flex flex-wrap gap-3">
+              {socialLinks.map((link) => {
+                return (
+                  <Link
+                    key={link.id}
+                    href={link.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/12 bg-white/5 text-stone-300 transition hover:border-white/30 hover:bg-white/10 hover:text-white"
+                    aria-label={link.platform}
+                  >
+                    <SocialIcon platform={link.platform} />
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
       </div>
     </footer>
   );

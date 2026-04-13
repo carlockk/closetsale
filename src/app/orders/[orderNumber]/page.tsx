@@ -30,6 +30,20 @@ export default async function OrderDetailPage({
     notFound();
   }
 
+  const sellerGroups =
+    order.sellerOrders.length > 0
+      ? order.sellerOrders
+      : [
+          {
+            id: order.id,
+            sellerName: "ClosetSale",
+            sellerSlug: null,
+            status: order.status,
+            subtotal: order.subtotal,
+            items: order.items,
+          },
+        ];
+
   return (
     <div className="bg-white">
       <OrderDetailPaymentState
@@ -88,38 +102,63 @@ export default async function OrderDetailPage({
               <h2 className="mt-2 font-serif text-3xl text-stone-950">Detalle de compra</h2>
             </div>
 
-            <div className="mt-6 divide-y divide-stone-200 border-y border-stone-200">
-              {order.items.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex flex-col gap-4 py-5 md:flex-row md:items-start md:justify-between"
-                >
-                  <div className="flex min-w-0 gap-4">
-                    <div className="h-24 w-20 shrink-0 overflow-hidden bg-stone-100">
-                      <Image
-                        src={item.product.images[0]?.url || "https://via.placeholder.com/320x400"}
-                        alt={item.title}
-                        width={320}
-                        height={400}
-                        className="h-full w-full object-cover"
-                      />
+            <div className="mt-6 space-y-8">
+              {sellerGroups.map((sellerOrder) => (
+                <div key={sellerOrder.id} className="border-y border-stone-200">
+                  <div className="flex flex-col gap-3 border-b border-stone-200 px-0 py-4 md:flex-row md:items-end md:justify-between">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.24em] text-stone-400">
+                        Vendedor
+                      </p>
+                      <p className="mt-2 font-serif text-2xl text-stone-950">
+                        {sellerOrder.sellerName}
+                      </p>
                     </div>
-                    <div className="min-w-0">
-                      <p className="font-medium text-stone-950">{item.title}</p>
-                      <p className="mt-1 text-sm text-stone-500">Cantidad: {item.quantity}</p>
-                      <Link
-                        href={`/products/${item.product.slug}`}
-                        className="mt-2 inline-flex text-sm text-stone-700 underline-offset-4 hover:underline"
-                      >
-                        Ver producto
-                      </Link>
+                    <div className="text-sm text-stone-500 md:text-right">
+                      <p>{sellerOrder.status}</p>
+                      <p className="mt-1 text-base font-semibold text-stone-950">
+                        {formatCurrency(Number(sellerOrder.subtotal))}
+                      </p>
                     </div>
                   </div>
-                  <div className="shrink-0 text-sm text-stone-700 md:text-right">
-                    <p>{formatCurrency(Number(item.unitPrice))} c/u</p>
-                    <p className="mt-1 font-semibold text-stone-950">
-                      {formatCurrency(Number(item.lineTotal))}
-                    </p>
+
+                  <div className="divide-y divide-stone-200">
+                    {sellerOrder.items.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex flex-col gap-4 py-5 md:flex-row md:items-start md:justify-between"
+                      >
+                        <div className="flex min-w-0 gap-4">
+                          <div className="h-24 w-20 shrink-0 overflow-hidden bg-stone-100">
+                            <Image
+                              src={item.product.images[0]?.url || "https://via.placeholder.com/320x400"}
+                              alt={item.title}
+                              width={320}
+                              height={400}
+                              className="h-full w-full object-cover"
+                            />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-medium text-stone-950">{item.title}</p>
+                            <p className="mt-1 text-sm text-stone-500">
+                              Cantidad: {item.quantity}
+                            </p>
+                            <Link
+                              href={`/products/${item.product.slug}`}
+                              className="mt-2 inline-flex text-sm text-stone-700 underline-offset-4 hover:underline"
+                            >
+                              Ver producto
+                            </Link>
+                          </div>
+                        </div>
+                        <div className="shrink-0 text-sm text-stone-700 md:text-right">
+                          <p>{formatCurrency(Number(item.unitPrice))} c/u</p>
+                          <p className="mt-1 font-semibold text-stone-950">
+                            {formatCurrency(Number(item.lineTotal))}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               ))}

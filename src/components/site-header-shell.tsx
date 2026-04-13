@@ -23,7 +23,7 @@ export function SiteHeaderShell({ children }: { children: React.ReactNode }) {
       <header
         className={`fixed inset-x-0 top-0 z-[60] transition-all duration-300 ${
           scrolled
-            ? "bg-[#f6f0e7]/72 shadow-sm backdrop-blur-xl"
+            ? "bg-white/84 shadow-sm backdrop-blur-xl"
             : "bg-transparent"
         }`}
       >

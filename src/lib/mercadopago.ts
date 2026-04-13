@@ -152,17 +152,36 @@ export async function syncMercadoPagoPaymentById(paymentId: string) {
     return null;
   }
 
-  const nextStatus = mapMercadoPagoPaymentStatus(payment.status);
+  const orderNumber = payment.external_reference;
 
-  return prisma.order.update({
-    where: { orderNumber: payment.external_reference },
-    data: {
-      paymentProvider: "MERCADO_PAGO",
-      paymentId: String(payment.id || paymentId),
-      status: nextStatus,
-      paymentStatusDetail: payment.status_detail || payment.status || null,
-      paidAt: nextStatus === "PAID" ? new Date() : null,
-    },
+  const nextStatus = mapMercadoPagoPaymentStatus(payment.status);
+  const nextSellerStatus =
+    nextStatus === "PAID"
+      ? "CONFIRMED"
+      : nextStatus === "CANCELLED"
+        ? "CANCELLED"
+        : "PENDING";
+
+  return prisma.$transaction(async (tx) => {
+    const order = await tx.order.update({
+      where: { orderNumber },
+      data: {
+        paymentProvider: "MERCADO_PAGO",
+        paymentId: String(payment.id || paymentId),
+        status: nextStatus,
+        paymentStatusDetail: payment.status_detail || payment.status || null,
+        paidAt: nextStatus === "PAID" ? new Date() : null,
+      },
+    });
+
+    await tx.sellerOrder.updateMany({
+      where: { orderId: order.id },
+      data: {
+        status: nextSellerStatus,
+      },
+    });
+
+    return order;
   });
 }
 

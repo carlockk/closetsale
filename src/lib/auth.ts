@@ -16,6 +16,19 @@ type SessionPayload = {
   sessionVersion: number;
 };
 
+export function normalizeSellerSlug(value: string) {
+  return (
+    value
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 60) || "mi-tienda"
+  );
+}
+
 export async function createSession(payload: SessionPayload) {
   const token = await new SignJWT(payload)
     .setProtectedHeader({ alg: "HS256" })
@@ -90,6 +103,38 @@ export async function getCurrentUser() {
   });
 }
 
+export async function getCurrentSellerProfile() {
+  const session = await getSession();
+
+  if (!session?.userId) {
+    return null;
+  }
+
+  return prisma.sellerProfile.findUnique({
+    where: { userId: session.userId },
+    include: {
+      products: {
+        select: { id: true, status: true },
+      },
+      sellerOrders: {
+        select: {
+          id: true,
+          status: true,
+          netAmount: true,
+          subtotal: true,
+        },
+      },
+      payouts: {
+        select: {
+          id: true,
+          status: true,
+          netAmount: true,
+        },
+      },
+    },
+  });
+}
+
 export async function requireAdmin() {
   const session = await getSession();
 
@@ -98,4 +143,42 @@ export async function requireAdmin() {
   }
 
   return session;
+}
+
+export async function requireSeller() {
+  const session = await getSession();
+
+  if (!session?.userId) {
+    redirect("/login?message=Debes iniciar sesion");
+  }
+
+  const seller = await prisma.sellerProfile.findUnique({
+    where: { userId: session.userId },
+    include: {
+      products: {
+        select: { id: true, status: true },
+      },
+      sellerOrders: {
+        select: {
+          id: true,
+          status: true,
+          netAmount: true,
+          subtotal: true,
+        },
+      },
+      payouts: {
+        select: {
+          id: true,
+          status: true,
+          netAmount: true,
+        },
+      },
+    },
+  });
+
+  if (!seller || seller.status !== "ACTIVE") {
+    redirect("/profile?message=Tu perfil seller debe estar activo para entrar al panel");
+  }
+
+  return seller;
 }

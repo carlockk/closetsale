@@ -36,6 +36,15 @@ export default async function AdminOrdersPage({
   const orders = await prisma.order.findMany({
     orderBy: { createdAt: "desc" },
     include: {
+      sellerOrders: {
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          sellerName: true,
+          status: true,
+          subtotal: true,
+        },
+      },
       items: {
         orderBy: { id: "asc" },
         select: { id: true, title: true, quantity: true },
@@ -112,6 +121,18 @@ export default async function AdminOrdersPage({
                   ) : null}
                   {order.notes ? (
                     <p className="mt-2 text-sm text-slate-500">Nota: {order.notes}</p>
+                  ) : null}
+                  {order.sellerOrders.length > 0 ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {order.sellerOrders.map((sellerOrder) => (
+                        <span
+                          key={sellerOrder.id}
+                          className="inline-flex border border-slate-200 px-2 py-1 text-[11px] uppercase tracking-[0.14em] text-slate-500"
+                        >
+                          {sellerOrder.sellerName}
+                        </span>
+                      ))}
+                    </div>
                   ) : null}
                 </div>
 

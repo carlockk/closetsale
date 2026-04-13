@@ -14,6 +14,10 @@ type ProductCardProps = {
     category: { name: string };
     images: { url: string }[];
     variants: { id: string }[];
+    seller?: {
+      storeName: string;
+      slug: string;
+    } | null;
   };
   variant?: "default" | "home";
 };
@@ -46,6 +50,14 @@ export function ProductCard({ product, variant = "default" }: ProductCardProps) 
         <p className="text-[11px] uppercase tracking-[0.24em] text-stone-400">
           {product.category.name}
         </p>
+        {product.seller ? (
+          <Link
+            href={`/tienda/${product.seller.slug}`}
+            className="mt-1 block text-[11px] uppercase tracking-[0.2em] text-stone-500 transition hover:text-stone-800"
+          >
+            Vendido por {product.seller.storeName}
+          </Link>
+        ) : null}
         <Link href={`/products/${product.slug}`} className="mt-2 block text-base font-medium text-stone-900">
           {product.title}
         </Link>

@@ -10,10 +10,11 @@ export async function GET(request: NextRequest) {
       products: [],
       pages: [],
       categories: [],
+      sellers: [],
     });
   }
 
-  const [products, pages, categories] = await Promise.all([
+  const [products, pages, categories, sellers] = await Promise.all([
     prisma.product.findMany({
       where: {
         status: "ACTIVE",
@@ -68,7 +69,29 @@ export async function GET(request: NextRequest) {
         slug: true,
       },
     }),
+    prisma.sellerProfile.findMany({
+      where: {
+        status: "ACTIVE",
+        OR: [
+          { storeName: { contains: query, mode: "insensitive" } },
+          { slug: { contains: query, mode: "insensitive" } },
+          { description: { contains: query, mode: "insensitive" } },
+        ],
+      },
+      take: 6,
+      orderBy: [{ products: { _count: "desc" } }, { storeName: "asc" }],
+      select: {
+        id: true,
+        storeName: true,
+        slug: true,
+        _count: {
+          select: {
+            products: true,
+          },
+        },
+      },
+    }),
   ]);
 
-  return NextResponse.json({ products, pages, categories });
+  return NextResponse.json({ products, pages, categories, sellers });
 }

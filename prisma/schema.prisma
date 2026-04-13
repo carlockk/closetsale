@@ -17,9 +17,19 @@ enum UserRole {
   USER
 }
 
+enum SellerStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  REJECTED
+}
+
 enum ProductStatus {
   DRAFT
+  PENDING_REVIEW
   ACTIVE
+  REJECTED
+  ARCHIVED
 }
 
 enum OrderStatus {
@@ -28,8 +38,26 @@ enum OrderStatus {
   CANCELLED
 }
 
+enum SellerOrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
 enum PaymentProvider {
   MERCADO_PAGO
+}
+
+enum PayoutStatus {
+  DRAFT
+  PROCESSING
+  PAID
+  FAILED
+  CANCELLED
 }
 
 enum ChatMessageRole {
@@ -39,16 +67,18 @@ enum ChatMessageRole {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  name         String
-  email        String   @unique
-  passwordHash String
-  sessionVersion Int    @default(0)
-  role         UserRole @default(USER)
-  orders       Order[]
-  chatMessages ChatMessage[]
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id              String          @id @default(cuid())
+  name            String
+  email           String          @unique
+  passwordHash    String
+  sessionVersion  Int             @default(0)
+  role            UserRole        @default(USER)
+  orders          Order[]
+  chatMessages    ChatMessage[]
+  sellerProfile   SellerProfile?
+  approvedSellers SellerProfile[] @relation("SellerApprovedBy")
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 }
 
 model AuthRateLimit {
@@ -128,7 +158,9 @@ model Product {
   brand          String?
   color          String?
   isFeatured     Boolean        @default(false)
-  status         ProductStatus  @default(ACTIVE)
+  status         ProductStatus  @default(DRAFT)
+  sellerId       String?
+  seller         SellerProfile? @relation(fields: [sellerId], references: [id], onDelete: SetNull)
   categoryId     String
   category       Category       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   images         ProductImage[]
@@ -136,6 +168,9 @@ model Product {
   orderItems     OrderItem[]
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
+
+  @@index([sellerId])
+  @@index([status])
 }
 
 model ProductImage {
@@ -174,41 +209,135 @@ model Slide {
 }
 
 model Order {
-  id              String      @id @default(cuid())
-  orderNumber     String      @unique
-  customerName    String
-  customerEmail   String
-  customerPhone   String?
-  shippingAddress String?
-  notes           String?
-  subtotal        Decimal     @db.Decimal(10, 2)
-  total           Decimal     @db.Decimal(10, 2)
-  status          OrderStatus @default(PENDING)
-  paymentProvider PaymentProvider?
-  paymentReference String?
-  paymentId       String?
+  id                  String         @id @default(cuid())
+  orderNumber         String         @unique
+  customerName        String
+  customerEmail       String
+  customerPhone       String?
+  shippingAddress     String?
+  notes               String?
+  subtotal            Decimal        @db.Decimal(10, 2)
+  total               Decimal        @db.Decimal(10, 2)
+  status              OrderStatus    @default(PENDING)
+  paymentProvider     PaymentProvider?
+  paymentReference    String?
+  paymentId           String?
   paymentStatusDetail String?
-  paymentUrl      String?
-  paidAt          DateTime?
-  userId          String?
-  user            User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
-  items           OrderItem[]
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  paymentUrl          String?
+  paidAt              DateTime?
+  userId              String?
+  user                User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  items               OrderItem[]
+  sellerOrders        SellerOrder[]
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
 }
 
 model OrderItem {
-  id        String          @id @default(cuid())
-  title     String
-  quantity  Int
-  unitPrice Decimal         @db.Decimal(10, 2)
-  lineTotal Decimal         @db.Decimal(10, 2)
-  productId String
-  product   Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
-  variantId String?
-  variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
-  orderId   String
-  order     Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  id            String          @id @default(cuid())
+  title         String
+  quantity      Int
+  unitPrice     Decimal         @db.Decimal(10, 2)
+  lineTotal     Decimal         @db.Decimal(10, 2)
+  productId     String
+  product       Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
+  variantId     String?
+  variant       ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  orderId       String
+  order         Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  sellerOrderId String?
+  sellerOrder   SellerOrder?    @relation(fields: [sellerOrderId], references: [id], onDelete: SetNull)
+}
+
+model SellerProfile {
+  id               String                @id @default(cuid())
+  userId           String                @unique
+  user             User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storeName        String
+  slug             String                @unique
+  description      String?
+  logoUrl          String?
+  coverUrl         String?
+  status           SellerStatus          @default(PENDING)
+  commissionRate   Decimal?              @db.Decimal(5, 2)
+  requestedAt      DateTime              @default(now())
+  approvedAt       DateTime?
+  rejectedAt       DateTime?
+  rejectedReason   String?
+  approvedByUserId String?
+  approvedBy       User?                 @relation("SellerApprovedBy", fields: [approvedByUserId], references: [id], onDelete: SetNull)
+  products         Product[]
+  sellerOrders     SellerOrder[]
+  payoutAccounts   SellerPayoutAccount[]
+  payouts          Payout[]
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+}
+
+model SellerOrder {
+  id               String            @id @default(cuid())
+  orderId          String
+  order            Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  sellerId         String?
+  seller           SellerProfile?    @relation(fields: [sellerId], references: [id], onDelete: SetNull)
+  sellerName       String
+  sellerSlug       String?
+  status           SellerOrderStatus @default(PENDING)
+  subtotal         Decimal           @db.Decimal(10, 2)
+  commissionRate   Decimal           @db.Decimal(5, 2)
+  commissionAmount Decimal           @db.Decimal(10, 2)
+  netAmount        Decimal           @db.Decimal(10, 2)
+  items            OrderItem[]
+  payoutItems      PayoutItem[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([sellerId, status])
+}
+
+model SellerPayoutAccount {
+  id          String        @id @default(cuid())
+  sellerId    String
+  seller      SellerProfile @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  provider    String
+  accountType String
+  label       String?
+  details     Json
+  isDefault   Boolean       @default(false)
+  verifiedAt  DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model Payout {
+  id                String        @id @default(cuid())
+  sellerId          String
+  seller            SellerProfile @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  periodStart       DateTime
+  periodEnd         DateTime
+  grossAmount       Decimal       @db.Decimal(10, 2)
+  commissionAmount  Decimal       @db.Decimal(10, 2)
+  netAmount         Decimal       @db.Decimal(10, 2)
+  status            PayoutStatus  @default(DRAFT)
+  provider          String?
+  externalReference String?
+  paidAt            DateTime?
+  items             PayoutItem[]
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+}
+
+model PayoutItem {
+  id               String      @id @default(cuid())
+  payoutId         String
+  payout           Payout      @relation(fields: [payoutId], references: [id], onDelete: Cascade)
+  sellerOrderId    String
+  sellerOrder      SellerOrder @relation(fields: [sellerOrderId], references: [id], onDelete: Restrict)
+  grossAmount      Decimal     @db.Decimal(10, 2)
+  commissionAmount Decimal     @db.Decimal(10, 2)
+  netAmount        Decimal     @db.Decimal(10, 2)
+
+  @@unique([payoutId, sellerOrderId])
 }
 
 model ChatMessage {

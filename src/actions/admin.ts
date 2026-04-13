@@ -12,6 +12,7 @@ import {
   categorySchema,
   orderStatusSchema,
   productSchema,
+  sellerStatusSchema,
   sitePageSchema,
   slideSchema,
   userSchema,
@@ -613,9 +614,60 @@ export async function updateOrderStatusAction(formData: FormData) {
     },
   });
 
+  await prisma.sellerOrder.updateMany({
+    where: { orderId: order.id },
+    data: {
+      status:
+        parsed.data === "PAID"
+          ? "CONFIRMED"
+          : parsed.data === "CANCELLED"
+            ? "CANCELLED"
+            : "PENDING",
+    },
+  });
+
   revalidatePath("/admin");
   revalidatePath("/admin/orders");
   revalidatePath("/orders");
   revalidatePath(`/orders/${order.orderNumber}`);
   redirect("/admin/orders?message=Pedido actualizado");
+}
+
+export async function updateSellerStatusAction(formData: FormData) {
+  const admin = await requireAdmin();
+
+  const sellerId = String(formData.get("sellerId") || "");
+  const parsed = sellerStatusSchema.safeParse(formData.get("status"));
+
+  if (!sellerId || !parsed.success) {
+    redirect("/admin/sellers?message=No se pudo actualizar el seller");
+  }
+
+  const seller = await prisma.sellerProfile.findUnique({
+    where: { id: sellerId },
+    select: { id: true, userId: true, slug: true },
+  });
+
+  if (!seller) {
+    redirect("/admin/sellers?message=Seller no encontrado");
+  }
+
+  await prisma.sellerProfile.update({
+    where: { id: seller.id },
+    data: {
+      status: parsed.data,
+      approvedAt: parsed.data === "ACTIVE" ? new Date() : null,
+      approvedByUserId: parsed.data === "ACTIVE" ? admin.userId : null,
+      rejectedAt: parsed.data === "REJECTED" ? new Date() : null,
+      rejectedReason:
+        parsed.data === "REJECTED"
+          ? "Revisado por administracion"
+          : null,
+    },
+  });
+
+  revalidatePath("/admin/sellers");
+  revalidatePath("/profile");
+  revalidatePath("/seller");
+  redirect("/admin/sellers?message=Seller actualizado");
 }

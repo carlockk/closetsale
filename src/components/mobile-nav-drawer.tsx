@@ -15,6 +15,7 @@ import {
 import { createPortal } from "react-dom";
 
 import { logoutAction } from "@/actions/auth";
+import { SellerAccessCta } from "@/components/seller/seller-access-cta";
 
 type MobileCategory = {
   id: string;
@@ -31,13 +32,17 @@ type MobileNavDrawerProps = {
   menus: MobileCategory[];
   isAdmin: boolean;
   isAuthenticated: boolean;
+  sellerStatus?: "PENDING" | "ACTIVE" | "SUSPENDED" | "REJECTED" | null;
 };
 
 export function MobileNavDrawer({
   menus,
   isAdmin,
   isAuthenticated,
+  sellerStatus,
 }: MobileNavDrawerProps) {
+  const sellerHref = "/vender";
+  const visibleMenus = menus.filter((menu) => menu.href !== sellerHref);
   const [open, setOpen] = useState(false);
   const [shouldRender, setShouldRender] = useState(false);
 
@@ -82,7 +87,7 @@ export function MobileNavDrawer({
     >
       <aside
         onClick={(event) => event.stopPropagation()}
-        className={`absolute right-0 top-0 h-screen w-[82vw] max-w-[20rem] bg-[#f6f0e7]/96 shadow-2xl backdrop-blur-xl transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+        className={`absolute right-0 top-0 h-screen w-[82vw] max-w-[20rem] bg-white/96 shadow-2xl backdrop-blur-xl transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
           open ? "translate-x-0" : "translate-x-[104%]"
         }`}
       >
@@ -102,8 +107,9 @@ export function MobileNavDrawer({
         </div>
 
         <div className="flex h-[calc(100vh-88px)] flex-col overflow-y-auto px-4 py-5">
-          <div className="space-y-2">
-            {menus.map((menu) => (
+          <div className="space-y-4">
+            <SellerAccessCta sellerStatus={sellerStatus} variant="banner" onClick={() => setOpen(false)} />
+            {visibleMenus.map((menu) => (
               <div key={menu.id} className="border border-stone-200 bg-white">
                 <Link
                   href={menu.href}

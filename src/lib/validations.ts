@@ -116,3 +116,4 @@ export const checkoutSchema = z.object({
 });
 
 export const orderStatusSchema = z.enum(["PENDING", "PAID", "CANCELLED"]);
+export const sellerStatusSchema = z.enum(["PENDING", "ACTIVE", "SUSPENDED", "REJECTED"]);

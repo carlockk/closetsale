@@ -10,12 +10,20 @@ type AuthDrawerProps = {
   isAuthenticated: boolean;
   label?: string;
   triggerClassName?: string;
+  initialMode?: "login" | "register";
+  registerAsSeller?: boolean;
+  registerTitle?: string;
+  registerDescription?: string;
 };
 
 export function AuthDrawer({
   isAuthenticated,
   label = "Ingresar",
   triggerClassName = "text-stone-700",
+  initialMode = "login",
+  registerAsSeller = false,
+  registerTitle,
+  registerDescription,
 }: AuthDrawerProps) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<"login" | "register">("login");
@@ -64,6 +72,17 @@ export function AuthDrawer({
   }
 
   const canPortal = typeof document !== "undefined";
+  const drawerTitle =
+    mode === "login"
+      ? "Iniciar sesion"
+      : registerTitle || (registerAsSeller ? "Crear cuenta seller" : "Crear cuenta");
+  const drawerDescription =
+    mode === "login"
+      ? "Entra para guardar favoritos, seguir tus pedidos y revisar tu seleccion."
+      : registerDescription ||
+        (registerAsSeller
+          ? "Crea tu cuenta, activa tu solicitud seller y completa tu tienda despues desde tu perfil."
+          : "Crea tu cuenta para guardar favoritos, comprar y seguir tus pedidos.");
 
   const drawerMarkup = (
     <div
@@ -83,9 +102,7 @@ export function AuthDrawer({
           <div className="flex items-center justify-between border-b border-stone-200 px-5 py-4 md:px-6">
             <div>
               <p className="text-xs uppercase tracking-[0.3em] text-stone-400">ClosetSale</p>
-              <h2 className="mt-1 font-serif text-3xl text-stone-950">
-                {mode === "login" ? "Iniciar sesion" : "Crear cuenta"}
-              </h2>
+              <h2 className="mt-1 font-serif text-3xl text-stone-950">{drawerTitle}</h2>
             </div>
             <button
               type="button"
@@ -119,9 +136,7 @@ export function AuthDrawer({
           </div>
 
           <div className="flex-1 overflow-y-auto px-5 py-6 md:px-6">
-            <p className="mb-6 text-sm text-stone-500">
-              Entra para guardar favoritos, seguir tus pedidos y revisar tu seleccion.
-            </p>
+            <p className="mb-6 text-sm text-stone-500">{drawerDescription}</p>
 
             {mode === "login" ? (
               <form action={loginAction} className="grid gap-4">
@@ -185,6 +200,19 @@ export function AuthDrawer({
                     {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
                 </label>
+                <label className="flex items-center gap-3 rounded-2xl border border-stone-200 px-4 py-3 text-sm text-stone-700">
+                  <input
+                    type="checkbox"
+                    name="wantsToSell"
+                    value="true"
+                    defaultChecked={registerAsSeller}
+                    className="h-4 w-4 rounded border-stone-300 text-stone-900 focus:ring-stone-900"
+                  />
+                  <span>Quiero vender en ClosetSale</span>
+                </label>
+                <p className="text-sm leading-6 text-stone-500">
+                  Si marcas esta opcion, dejamos creada tu solicitud seller para que la completes desde tu perfil.
+                </p>
                 <button className="rounded-full bg-stone-900 px-6 py-3 text-sm uppercase tracking-[0.2em] text-white">
                   Registrarme
                 </button>
@@ -200,10 +228,10 @@ export function AuthDrawer({
     <>
       <button
         type="button"
-        onClick={() => openDrawer("login")}
+        onClick={() => openDrawer(initialMode)}
         data-auth-trigger
         className={triggerClassName}
-        aria-label="Abrir login"
+        aria-label={initialMode === "login" ? "Abrir login" : "Abrir registro"}
       >
         {label}
       </button>

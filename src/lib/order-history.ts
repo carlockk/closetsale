@@ -11,6 +11,28 @@ export async function getOrdersForUser(userId: string) {
     where: { userId },
     orderBy: { createdAt: "desc" },
     include: {
+      sellerOrders: {
+        orderBy: { createdAt: "asc" },
+        include: {
+          items: {
+            orderBy: { id: "asc" },
+            include: {
+              product: {
+                select: {
+                  slug: true,
+                  images: {
+                    orderBy: { sortOrder: "asc" },
+                    take: 1,
+                    select: {
+                      url: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
       items: {
         orderBy: { id: "asc" },
         include: {
@@ -53,6 +75,28 @@ export async function getOrderForViewer(orderNumber: string, viewer: Viewer) {
       OR: viewerFilters,
     },
     include: {
+      sellerOrders: {
+        orderBy: { createdAt: "asc" },
+        include: {
+          items: {
+            orderBy: { id: "asc" },
+            include: {
+              product: {
+                select: {
+                  slug: true,
+                  images: {
+                    orderBy: { sortOrder: "asc" },
+                    take: 1,
+                    select: {
+                      url: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
       items: {
         orderBy: { id: "asc" },
         include: {

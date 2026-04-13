@@ -46,7 +46,7 @@ export default async function RootLayout({
 
   return (
     <html lang="es" className={`${heading.variable} ${body.variable}`}>
-      <body className="flex min-h-screen flex-col overflow-x-hidden bg-[#f3ede3] text-stone-900 antialiased">
+      <body className="flex min-h-screen flex-col overflow-x-hidden bg-white text-stone-900 antialiased">
         <Providers />
         <div className="public-header">
           <SiteHeader />

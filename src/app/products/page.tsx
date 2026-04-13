@@ -2,29 +2,39 @@ import Link from "next/link";
 
 import { ProductCard } from "@/components/product-card";
 import { SectionHeading } from "@/components/section-heading";
-import { getCategoryTree, getProducts } from "@/lib/store";
+import { getCategoryTree, getProducts, getSellerBySlug } from "@/lib/store";
 
 type ProductsPageProps = {
-  searchParams: Promise<{ category?: string; search?: string }>;
+  searchParams: Promise<{ category?: string; search?: string; seller?: string }>;
 };
 
 export default async function ProductsPage({ searchParams }: ProductsPageProps) {
   const params = await searchParams;
-  const [products, categories] = await Promise.all([
-    getProducts({ category: params.category, search: params.search }),
+  const [products, categories, activeSeller] = await Promise.all([
+    getProducts({ category: params.category, search: params.search, seller: params.seller }),
     getCategoryTree(),
+    params.seller ? getSellerBySlug(params.seller) : Promise.resolve(null),
   ]);
   const activeCategory = categories.find((category) => category.slug === params.category) ||
     categories.flatMap((category) => category.children).find((category) => category.slug === params.category) ||
     null;
+  const sellerFilter = activeSeller?.status === "ACTIVE" ? activeSeller : null;
+  const pageTitle = sellerFilter
+    ? sellerFilter.storeName
+    : activeCategory
+      ? activeCategory.name
+      : "Explora todo el catalogo";
+  const pageDescription = sellerFilter
+    ? `Descubre los productos publicados por ${sellerFilter.storeName} dentro de ClosetSale.`
+    : "Descubre el inventario completo y filtra por categoria segun lo que busques.";
 
   return (
     <div className="bg-white">
       <div className="mx-auto max-w-7xl px-4 py-10 lg:px-8">
       <SectionHeading
         eyebrow="Tienda"
-        title={activeCategory ? activeCategory.name : "Explora todo el catalogo"}
-        description="Descubre el inventario completo y filtra por categoria segun lo que busques."
+        title={pageTitle}
+        description={pageDescription}
       />
 
       <div className="mb-8 flex flex-wrap gap-2 lg:hidden">
@@ -107,7 +117,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
         <div>
           {products.length === 0 ? (
             <div className="border border-stone-200 px-6 py-10 text-stone-500">
-              No encontramos productos para esta categoria.
+              No encontramos productos para este filtro.
             </div>
           ) : (
             <div className="grid gap-x-5 gap-y-10 md:grid-cols-2 xl:grid-cols-3">

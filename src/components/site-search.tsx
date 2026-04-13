@@ -21,12 +21,21 @@ type SearchResults = {
     name: string;
     slug: string;
   }>;
+  sellers: Array<{
+    id: string;
+    storeName: string;
+    slug: string;
+    _count: {
+      products: number;
+    };
+  }>;
 };
 
 const EMPTY_RESULTS: SearchResults = {
   products: [],
   pages: [],
   categories: [],
+  sellers: [],
 };
 
 export function SiteSearch() {
@@ -89,6 +98,7 @@ export function SiteSearch() {
           products: Array.isArray(data.products) ? data.products : [],
           pages: Array.isArray(data.pages) ? data.pages : [],
           categories: Array.isArray(data.categories) ? data.categories : [],
+          sellers: Array.isArray(data.sellers) ? data.sellers : [],
         });
       } catch (error) {
         if ((error as Error).name !== "AbortError") {
@@ -108,7 +118,8 @@ export function SiteSearch() {
   const hasResults =
     results.products.length > 0 ||
     results.pages.length > 0 ||
-    results.categories.length > 0;
+    results.categories.length > 0 ||
+    results.sellers.length > 0;
 
   return (
     <div ref={containerRef} className="relative">
@@ -122,14 +133,14 @@ export function SiteSearch() {
       </button>
 
       {open ? (
-        <div className="absolute right-0 top-full z-[90] mt-4 w-[min(92vw,30rem)] overflow-hidden rounded-[1.75rem] border border-stone-200 bg-[#fbf7f0]/95 shadow-2xl backdrop-blur-xl">
+        <div className="absolute right-0 top-full z-[90] mt-4 w-[min(92vw,30rem)] overflow-hidden rounded-[1.75rem] border border-stone-200 bg-white/95 shadow-2xl backdrop-blur-xl">
           <div className="flex items-center gap-3 border-b border-stone-200 px-4 py-3">
             <Search className="h-4 w-4 text-stone-500" />
             <input
               ref={inputRef}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Busca productos, paginas o categorias..."
+              placeholder="Busca productos, tiendas, paginas o categorias..."
               className="flex-1 bg-transparent text-sm text-stone-900 outline-none placeholder:text-stone-400"
             />
             {loading ? (
@@ -180,8 +191,29 @@ export function SiteSearch() {
               </div>
             ) : null}
 
-            {results.pages.length > 0 ? (
+            {results.sellers.length > 0 ? (
               <div className={results.products.length > 0 ? "mt-5" : ""}>
+                <p className="text-[11px] uppercase tracking-[0.28em] text-stone-400">Sellers</p>
+                <div className="mt-3 space-y-2">
+                  {results.sellers.map((seller) => (
+                    <Link
+                      key={seller.id}
+                      href={`/tienda/${seller.slug}`}
+                      onClick={() => setOpen(false)}
+                      className="block rounded-2xl bg-white px-4 py-3 ring-1 ring-stone-200 transition hover:bg-stone-50"
+                    >
+                      <p className="text-sm font-medium text-stone-900">{seller.storeName}</p>
+                      <p className="mt-1 text-xs uppercase tracking-[0.2em] text-stone-400">
+                        {seller._count.products} productos
+                      </p>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {results.pages.length > 0 ? (
+              <div className={results.products.length > 0 || results.sellers.length > 0 ? "mt-5" : ""}>
                 <p className="text-[11px] uppercase tracking-[0.28em] text-stone-400">Paginas</p>
                 <div className="mt-3 space-y-2">
                   {results.pages.map((page) => (
@@ -202,7 +234,7 @@ export function SiteSearch() {
             ) : null}
 
             {results.categories.length > 0 ? (
-              <div className={results.products.length > 0 || results.pages.length > 0 ? "mt-5" : ""}>
+              <div className={results.products.length > 0 || results.sellers.length > 0 || results.pages.length > 0 ? "mt-5" : ""}>
                 <p className="text-[11px] uppercase tracking-[0.28em] text-stone-400">Categorias</p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {results.categories.map((category) => (

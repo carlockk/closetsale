@@ -5,6 +5,10 @@ import { redirect } from "next/navigation";
 
 import { getCurrentUser } from "@/lib/auth";
 import {
+  getDefaultCommissionRate,
+  getSellerSnapshot,
+} from "@/lib/marketplace";
+import {
   createMercadoPagoPreference,
   isMercadoPagoConfigured,
 } from "@/lib/mercadopago";
@@ -38,7 +42,17 @@ export async function checkoutAction(formData: FormData) {
   const productIds = parsed.data.items.map((item) => item.productId);
   const products = await prisma.product.findMany({
     where: { id: { in: productIds } },
-    include: { variants: true },
+    include: {
+      variants: true,
+      seller: {
+        select: {
+          id: true,
+          storeName: true,
+          slug: true,
+          commissionRate: true,
+        },
+      },
+    },
   });
 
   const items = parsed.data.items.map((item) => {
@@ -60,6 +74,7 @@ export async function checkoutAction(formData: FormData) {
       quantity: item.quantity,
       unitPrice,
       lineTotal: unitPrice * item.quantity,
+      seller: product.seller,
     };
   });
 
@@ -68,23 +83,109 @@ export async function checkoutAction(formData: FormData) {
   const orderNumber = `CS-${Date.now()}`;
   const shouldUseMercadoPago = isMercadoPagoConfigured();
 
-  const order = await prisma.order.create({
-    data: {
-      orderNumber,
-      customerName: parsed.data.customerName,
-      customerEmail: parsed.data.customerEmail,
-      customerPhone: parsed.data.customerPhone || null,
-      shippingAddress: parsed.data.shippingAddress,
-      notes: parsed.data.notes || null,
-      subtotal,
-      total: subtotal,
-      status: shouldUseMercadoPago ? "PENDING" : "PAID",
-      paymentProvider: shouldUseMercadoPago ? "MERCADO_PAGO" : null,
-      userId: currentUser?.id || null,
-      items: {
-        create: items,
+  const order = await prisma.$transaction(async (tx) => {
+    const createdOrder = await tx.order.create({
+      data: {
+        orderNumber,
+        customerName: parsed.data.customerName,
+        customerEmail: parsed.data.customerEmail,
+        customerPhone: parsed.data.customerPhone || null,
+        shippingAddress: parsed.data.shippingAddress,
+        notes: parsed.data.notes || null,
+        subtotal,
+        total: subtotal,
+        status: shouldUseMercadoPago ? "PENDING" : "PAID",
+        paymentProvider: shouldUseMercadoPago ? "MERCADO_PAGO" : null,
+        userId: currentUser?.id || null,
       },
-    },
+    });
+
+    const createdItems: Array<{ id: string }> = [];
+
+    for (const item of items) {
+      const createdItem = await tx.orderItem.create({
+        data: {
+          orderId: createdOrder.id,
+          productId: item.productId,
+          variantId: item.variantId,
+          title: item.title,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          lineTotal: item.lineTotal,
+        },
+      });
+
+      createdItems.push(createdItem);
+    }
+
+    const sellerGroups = items.reduce<
+      Map<
+        string,
+        {
+          sellerId: string | null;
+          sellerName: string;
+          sellerSlug: string | null;
+          commissionRate: number;
+          subtotal: number;
+          itemIds: string[];
+        }
+      >
+    >((groups, item, index) => {
+      const snapshot = getSellerSnapshot({
+        id: item.seller?.id,
+        storeName: item.seller?.storeName,
+        slug: item.seller?.slug,
+      });
+      const groupKey = snapshot.sellerId || "__platform__";
+      const commissionRate =
+        item.seller?.commissionRate === null || item.seller?.commissionRate === undefined
+          ? snapshot.sellerId
+            ? getDefaultCommissionRate()
+            : 0
+          : Number(item.seller.commissionRate);
+
+      const existing = groups.get(groupKey) || {
+        sellerId: snapshot.sellerId,
+        sellerName: snapshot.sellerName,
+        sellerSlug: snapshot.sellerSlug,
+        commissionRate,
+        subtotal: 0,
+        itemIds: [],
+      };
+
+      existing.subtotal += item.lineTotal;
+      existing.itemIds.push(createdItems[index]!.id);
+      groups.set(groupKey, existing);
+      return groups;
+    }, new Map());
+
+    for (const group of sellerGroups.values()) {
+      const commissionAmount = Number(
+        ((group.subtotal * group.commissionRate) / 100).toFixed(2),
+      );
+      const netAmount = Number((group.subtotal - commissionAmount).toFixed(2));
+
+      const sellerOrder = await tx.sellerOrder.create({
+        data: {
+          orderId: createdOrder.id,
+          sellerId: group.sellerId,
+          sellerName: group.sellerName,
+          sellerSlug: group.sellerSlug,
+          status: shouldUseMercadoPago ? "PENDING" : "CONFIRMED",
+          subtotal: group.subtotal,
+          commissionRate: group.commissionRate,
+          commissionAmount,
+          netAmount,
+        },
+      });
+
+      await tx.orderItem.updateMany({
+        where: { id: { in: group.itemIds } },
+        data: { sellerOrderId: sellerOrder.id },
+      });
+    }
+
+    return { ...createdOrder, items: createdItems };
   });
 
   if (shouldUseMercadoPago) {

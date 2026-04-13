@@ -43,6 +43,12 @@ type ProductFormProps = {
   categories: Category[];
   product?: EditableProduct | null;
   compact?: boolean;
+  createAction?: (formData: FormData) => void | Promise<void>;
+  updateAction?: (formData: FormData) => void | Promise<void>;
+  submitLabel?: {
+    create: string;
+    update: string;
+  };
 };
 
 const EMPTY_VARIANT: ProductVariantInput = {
@@ -52,8 +58,17 @@ const EMPTY_VARIANT: ProductVariantInput = {
   priceDelta: 0,
 };
 
-export function ProductForm({ categories, product, compact = false }: ProductFormProps) {
+export function ProductForm({
+  categories,
+  product,
+  compact = false,
+  createAction: createActionProp,
+  updateAction: updateActionProp,
+  submitLabel,
+}: ProductFormProps) {
   const isEditing = Boolean(product);
+  const createAction = createActionProp || createProductAction;
+  const updateAction = updateActionProp || updateProductAction;
   const [title, setTitle] = useState(product?.title ?? "");
   const [slug, setSlug] = useState(product?.slug ?? "");
   const [images, setImages] = useState<string[]>(product?.images.map((image) => image.url) ?? []);
@@ -326,7 +341,9 @@ export function ProductForm({ categories, product, compact = false }: ProductFor
       </div>
 
       <button className="w-fit bg-slate-900 px-4 py-2 text-[11px] uppercase tracking-[0.2em] text-white">
-        {isEditing ? "Actualizar producto" : "Guardar producto"}
+        {isEditing
+          ? submitLabel?.update || "Actualizar producto"
+          : submitLabel?.create || "Guardar producto"}
       </button>
     </form>
   );

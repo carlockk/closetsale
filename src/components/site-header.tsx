@@ -6,25 +6,36 @@ import logoImage from "../../public/logo.png";
 import { logoutAction } from "@/actions/auth";
 import { AuthDrawer } from "@/components/auth-drawer";
 import { MobileNavDrawer } from "@/components/mobile-nav-drawer";
+import { SellerAccessCta } from "@/components/seller/seller-access-cta";
 import { SiteSearch } from "@/components/site-search";
 import { SiteHeaderShell } from "@/components/site-header-shell";
 import { StoreHeaderShortcuts } from "@/components/store/store-shortcuts";
-import { getSession } from "@/lib/auth";
+import { getCurrentSellerProfile, getSession } from "@/lib/auth";
 import { getGlobalMenus } from "@/lib/site-menus";
 
 export async function SiteHeader() {
-  const [menus, session] = await Promise.all([getGlobalMenus(), getSession()]);
+  const [menus, session, seller] = await Promise.all([
+    getGlobalMenus(),
+    getSession(),
+    getCurrentSellerProfile(),
+  ]);
+  const sellerHref = "/vender";
+  const visibleMenus = menus.filter((menu) => menu.href !== sellerHref);
 
   return (
     <SiteHeaderShell>
       <div className="lg:hidden">
         <div className="bg-stone-950 px-4 py-2 text-white">
           <div className="flex items-center justify-between gap-3">
-            <MobileNavDrawer
-              menus={menus}
-              isAdmin={session?.role === "ADMIN"}
-              isAuthenticated={Boolean(session)}
-            />
+            <div className="flex items-center gap-3">
+              <MobileNavDrawer
+                menus={menus}
+                isAdmin={session?.role === "ADMIN"}
+                isAuthenticated={Boolean(session)}
+                sellerStatus={seller?.status ?? null}
+              />
+              <SellerAccessCta sellerStatus={seller?.status ?? null} variant="button" />
+            </div>
             {session ? (
               <div className="truncate text-xs font-medium">
                 Bienvenido: {session.name}
@@ -38,7 +49,7 @@ export async function SiteHeader() {
             )}
           </div>
         </div>
-        <div className="border-b border-stone-200 bg-[#f6f0e7] px-4 py-5">
+        <div className="border-b border-stone-200 bg-white px-4 py-5">
           <Link href="/" className="flex items-center justify-center gap-3 text-center">
             <Image
               src={logoImage}
@@ -81,7 +92,8 @@ export async function SiteHeader() {
         </Link>
 
         <nav className="hidden items-center gap-6 lg:flex">
-          {menus.map((menu) => (
+          <SellerAccessCta sellerStatus={seller?.status ?? null} variant="button" />
+          {visibleMenus.map((menu) => (
             <div key={menu.id} className="group relative">
               <Link
                 href={menu.href}
