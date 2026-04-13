@@ -2,11 +2,38 @@ import { Prisma } from "@/generated/prisma/client";
 import { getMostViewedProductIds } from "@/lib/product-views";
 import { prisma } from "@/lib/prisma";
 
+const storeProductInclude = {
+  images: { orderBy: { sortOrder: "asc" }, take: 1 },
+  variants: true,
+  category: true,
+  seller: {
+    select: {
+      id: true,
+      storeName: true,
+      slug: true,
+    },
+  },
+} satisfies Prisma.ProductInclude;
+
+type StoreProductRecord = Prisma.ProductGetPayload<{
+  include: typeof storeProductInclude;
+}>;
+
+type SerializedProduct<T extends {
+  price: unknown;
+  compareAtPrice?: unknown;
+  variants: Array<{ priceDelta: unknown }>;
+}> = Omit<T, "price" | "compareAtPrice" | "variants"> & {
+  price: number;
+  compareAtPrice: number | null;
+  variants: Array<Omit<T["variants"][number], "priceDelta"> & { priceDelta: number }>;
+};
+
 function serializeProduct<T extends {
   price: unknown;
   compareAtPrice?: unknown;
   variants: Array<{ priceDelta: unknown }>;
-}>(product: T) {
+}>(product: T): SerializedProduct<T> {
   return {
     ...product,
     price: Number(product.price),
@@ -18,7 +45,38 @@ function serializeProduct<T extends {
       ...variant,
       priceDelta: Number(variant.priceDelta),
     })),
-  };
+  } as SerializedProduct<T>;
+}
+
+function isPresent<T>(value: T | null | undefined): value is T {
+  return value !== null && value !== undefined;
+}
+
+type StoreProduct = SerializedProduct<StoreProductRecord>;
+
+const productDetailInclude = {
+  images: { orderBy: { sortOrder: "asc" } },
+  variants: { orderBy: { name: "asc" } },
+  category: true,
+  seller: {
+    select: {
+      id: true,
+      storeName: true,
+      slug: true,
+      description: true,
+      logoUrl: true,
+    },
+  },
+} satisfies Prisma.ProductInclude;
+
+type ProductDetailRecord = Prisma.ProductGetPayload<{
+  include: typeof productDetailInclude;
+}>;
+
+type ProductDetail = SerializedProduct<ProductDetailRecord>;
+
+function serializeStoreProduct(product: StoreProductRecord): StoreProduct {
+  return serializeProduct(product);
 }
 
 export async function getCategoryTree() {
@@ -45,35 +103,13 @@ export async function getHomeData() {
         where: { status: "ACTIVE", isFeatured: true },
         take: 8,
         orderBy: { createdAt: "desc" },
-        include: {
-          images: { orderBy: { sortOrder: "asc" }, take: 1 },
-          variants: true,
-          category: true,
-          seller: {
-            select: {
-              id: true,
-              storeName: true,
-              slug: true,
-            },
-          },
-        },
+        include: storeProductInclude,
       }),
       prisma.product.findMany({
         where: { status: "ACTIVE" },
         take: 8,
         orderBy: { createdAt: "desc" },
-        include: {
-          images: { orderBy: { sortOrder: "asc" }, take: 1 },
-          variants: true,
-          category: true,
-          seller: {
-            select: {
-              id: true,
-              storeName: true,
-              slug: true,
-            },
-          },
-        },
+        include: storeProductInclude,
       }),
       prisma.product.findMany({
         where: { status: "ACTIVE" },
@@ -83,18 +119,7 @@ export async function getHomeData() {
             _count: "desc",
           },
         },
-        include: {
-          images: { orderBy: { sortOrder: "asc" }, take: 1 },
-          variants: true,
-          category: true,
-          seller: {
-            select: {
-              id: true,
-              storeName: true,
-              slug: true,
-            },
-          },
-        },
+        include: storeProductInclude,
       }),
       getCategoryTree(),
       getMostViewedProductIds(8),
@@ -135,7 +160,7 @@ export async function getHomeData() {
       }),
     ]);
 
-  const mostViewedProducts = mostViewedIds.length
+  const mostViewedProducts: StoreProductRecord[] = mostViewedIds.length
     ? await prisma.product.findMany({
         where: {
           status: "ACTIVE",
@@ -143,33 +168,22 @@ export async function getHomeData() {
             in: mostViewedIds,
           },
         },
-        include: {
-          images: { orderBy: { sortOrder: "asc" }, take: 1 },
-          variants: true,
-          category: true,
-          seller: {
-            select: {
-              id: true,
-              storeName: true,
-              slug: true,
-            },
-          },
-        },
+        include: storeProductInclude,
       })
     : [];
 
   const mostViewedById = new Map(
-    mostViewedProducts.map((product) => [product.id, serializeProduct(product)]),
+    mostViewedProducts.map((product) => [product.id, serializeStoreProduct(product)]),
   );
 
   return {
     slides,
-    featuredProducts: featuredProducts.map(serializeProduct),
-    latestProducts: latestProducts.map(serializeProduct),
-    bestSelling: bestSelling.map(serializeProduct),
+    featuredProducts: featuredProducts.map(serializeStoreProduct),
+    latestProducts: latestProducts.map(serializeStoreProduct),
+    bestSelling: bestSelling.map(serializeStoreProduct),
     mostViewed: mostViewedIds
       .map((id) => mostViewedById.get(id))
-      .filter(Boolean),
+      .filter(isPresent),
     topSellers: topSellers.map((seller) => ({
       id: seller.id,
       storeName: seller.storeName,
@@ -232,21 +246,10 @@ export async function getProducts(filters?: {
   const products = await prisma.product.findMany({
     where,
     orderBy: { createdAt: "desc" },
-    include: {
-      images: { orderBy: { sortOrder: "asc" }, take: 1 },
-      variants: true,
-      category: true,
-      seller: {
-        select: {
-          id: true,
-          storeName: true,
-          slug: true,
-        },
-      },
-    },
+    include: storeProductInclude,
   });
 
-  return products.map(serializeProduct);
+  return products.map(serializeStoreProduct);
 }
 
 export async function getSellerBySlug(slug: string) {
@@ -298,18 +301,7 @@ export async function getPublicSellerStore(slug: string) {
         sellerId: seller.id,
       },
       orderBy: { createdAt: "desc" },
-      include: {
-        images: { orderBy: { sortOrder: "asc" }, take: 1 },
-        variants: true,
-        category: true,
-        seller: {
-          select: {
-            id: true,
-            storeName: true,
-            slug: true,
-          },
-        },
-      },
+      include: storeProductInclude,
     }),
   ]);
 
@@ -321,27 +313,21 @@ export async function getPublicSellerStore(slug: string) {
         sellerOrders: sellerOrderCount,
       },
     },
-    products: products.map(serializeProduct),
+    products: products.map(serializeStoreProduct),
   };
 }
 
-export async function getProductBySlug(slug: string) {
+export async function getProductBySlug(
+  slug: string,
+): Promise<{
+  product: ProductDetail;
+  moreFromSeller: StoreProduct[];
+  relatedProducts: StoreProduct[];
+  recommendedProducts: StoreProduct[];
+} | null> {
   const product = await prisma.product.findUnique({
     where: { slug },
-    include: {
-      images: { orderBy: { sortOrder: "asc" } },
-      variants: { orderBy: { name: "asc" } },
-      category: true,
-      seller: {
-        select: {
-          id: true,
-          storeName: true,
-          slug: true,
-          description: true,
-          logoUrl: true,
-        },
-      },
-    },
+    include: productDetailInclude,
   });
 
   if (!product) {
@@ -356,18 +342,7 @@ export async function getProductBySlug(slug: string) {
         status: "ACTIVE",
       },
       take: 4,
-      include: {
-        images: { orderBy: { sortOrder: "asc" }, take: 1 },
-        variants: true,
-        category: true,
-        seller: {
-          select: {
-            id: true,
-            storeName: true,
-            slug: true,
-          },
-        },
-      },
+      include: storeProductInclude,
     }),
     product.sellerId
       ? prisma.product.findMany({
@@ -378,18 +353,7 @@ export async function getProductBySlug(slug: string) {
           },
           take: 4,
           orderBy: { createdAt: "desc" },
-          include: {
-            images: { orderBy: { sortOrder: "asc" }, take: 1 },
-            variants: true,
-            category: true,
-            seller: {
-              select: {
-                id: true,
-                storeName: true,
-                slug: true,
-              },
-            },
-          },
+          include: storeProductInclude,
         })
       : Promise.resolve([]),
     getMostViewedProductIds(16),
@@ -402,7 +366,7 @@ export async function getProductBySlug(slug: string) {
   ]);
 
   const recommendedMostViewedCandidates = mostViewedIds.filter((id) => !excludedIds.has(id)).slice(0, 8);
-  const recommendedMostViewedProducts = recommendedMostViewedCandidates.length
+  const recommendedMostViewedProducts: StoreProductRecord[] = recommendedMostViewedCandidates.length
     ? await prisma.product.findMany({
         where: {
           status: "ACTIVE",
@@ -410,32 +374,21 @@ export async function getProductBySlug(slug: string) {
             in: recommendedMostViewedCandidates,
           },
         },
-        include: {
-          images: { orderBy: { sortOrder: "asc" }, take: 1 },
-          variants: true,
-          category: true,
-          seller: {
-            select: {
-              id: true,
-              storeName: true,
-              slug: true,
-            },
-          },
-        },
+        include: storeProductInclude,
       })
     : [];
 
   const recommendedById = new Map(
-    recommendedMostViewedProducts.map((item) => [item.id, serializeProduct(item)]),
+    recommendedMostViewedProducts.map((item) => [item.id, serializeStoreProduct(item)]),
   );
 
   return {
     product: serializeProduct(product),
-    moreFromSeller: moreFromSeller.map(serializeProduct),
-    relatedProducts: relatedProducts.map(serializeProduct),
+    moreFromSeller: moreFromSeller.map(serializeStoreProduct),
+    relatedProducts: relatedProducts.map(serializeStoreProduct),
     recommendedProducts: recommendedMostViewedCandidates
       .map((id) => recommendedById.get(id))
-      .filter(Boolean),
+      .filter(isPresent),
   };
 }
 
