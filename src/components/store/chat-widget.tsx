@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageSquare, Send, X } from "lucide-react";
+import { MoreHorizontal, Send, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import {
@@ -293,10 +293,10 @@ export function ChatWidget() {
       <button
         type="button"
         onClick={() => setIsOpen((current) => !current)}
-        className="rounded-full bg-stone-900 p-4 text-white shadow-xl transition hover:scale-105 hover:bg-stone-700"
+        className="chat-widget-trigger rounded-full bg-stone-900 p-4 text-white shadow-xl transition hover:scale-105 hover:bg-stone-700"
         aria-label={isOpen ? "Cerrar chat" : "Abrir chat"}
       >
-        <MessageSquare className="h-6 w-6" />
+        <MoreHorizontal className="h-6 w-6" />
       </button>
 
       {isOpen ? (

@@ -43,7 +43,7 @@ button {
   transition: all 160ms ease;
 }
 
-button,
+button:not(.chat-widget-trigger),
 input[type="button"],
 input[type="submit"],
 input[type="reset"],
