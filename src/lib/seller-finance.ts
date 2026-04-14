@@ -22,6 +22,12 @@ export function getActivePayoutStatuses() {
   return [...ACTIVE_PAYOUT_STATUSES];
 }
 
+export function isActivePayoutStatus(status: string) {
+  return ACTIVE_PAYOUT_STATUSES.includes(
+    status as (typeof ACTIVE_PAYOUT_STATUSES)[number],
+  );
+}
+
 export function isSellerOrderEligibleForPayout(order: SellerOrderLike) {
   if (order.status !== RELEASABLE_SELLER_ORDER_STATUS) {
     return false;

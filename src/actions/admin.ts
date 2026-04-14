@@ -8,7 +8,7 @@ import { Prisma } from "@/generated/prisma/client";
 import { requireAdmin } from "@/lib/auth";
 import { getDefaultCommissionRate } from "@/lib/marketplace";
 import { prisma } from "@/lib/prisma";
-import { getActivePayoutStatuses } from "@/lib/seller-finance";
+import { getActivePayoutStatuses, isActivePayoutStatus } from "@/lib/seller-finance";
 import { safeSlug } from "@/lib/utils";
 import {
   categorySchema,
@@ -708,7 +708,7 @@ export async function updateSellerOrderStatusAction(formData: FormData) {
   }
 
   const hasActivePayout = sellerOrder.payoutItems.some((item) =>
-    getActivePayoutStatuses().includes(item.payout.status),
+    isActivePayoutStatus(item.payout.status),
   );
 
   if (hasActivePayout) {
