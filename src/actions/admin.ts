@@ -748,6 +748,7 @@ export async function createSellerPayoutAction(formData: FormData) {
           provider: true,
           accountType: true,
           details: true,
+          verifiedAt: true,
         },
       },
       sellerOrders: {
@@ -783,6 +784,10 @@ export async function createSellerPayoutAction(formData: FormData) {
 
   if (!defaultAccount) {
     redirect("/admin/payouts?message=El seller debe registrar una cuenta de cobro");
+  }
+
+  if (!defaultAccount.verifiedAt) {
+    redirect("/admin/payouts?message=La cuenta de cobro del seller debe estar verificada");
   }
 
   if (seller.sellerOrders.length === 0) {
@@ -892,4 +897,42 @@ export async function updateSellerCommissionAction(formData: FormData) {
   revalidatePath("/admin/sellers");
   revalidatePath("/admin/payouts");
   redirect("/admin/sellers?message=Comision seller actualizada");
+}
+
+export async function verifySellerPayoutAccountAction(formData: FormData) {
+  await requireAdmin();
+
+  const sellerId = String(formData.get("sellerId") || "");
+  const accountId = String(formData.get("accountId") || "");
+
+  if (!sellerId || !accountId) {
+    redirect("/admin/sellers?message=No se pudo verificar la cuenta");
+  }
+
+  const account = await prisma.sellerPayoutAccount.findFirst({
+    where: {
+      id: accountId,
+      sellerId,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!account) {
+    redirect("/admin/sellers?message=Cuenta de cobro no encontrada");
+  }
+
+  await prisma.sellerPayoutAccount.update({
+    where: { id: account.id },
+    data: {
+      verifiedAt: new Date(),
+    },
+  });
+
+  revalidatePath("/admin/sellers");
+  revalidatePath("/admin/payouts");
+  revalidatePath("/seller");
+  revalidatePath("/seller/finanzas");
+  redirect("/admin/sellers?message=Cuenta de cobro verificada");
 }

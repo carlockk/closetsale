@@ -1,11 +1,12 @@
 import Link from "next/link";
 
+import { updateSellerOwnOrderStatusAction } from "@/actions/seller";
 import { requireSeller } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { formatCurrency, formatShortDate } from "@/lib/utils";
 
 type SellerOrdersPageProps = {
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{ status?: string; message?: string }>;
 };
 
 function getStatusClassName(status: string) {
@@ -54,6 +55,17 @@ function getSellerOrderStatusFilter(status: string | undefined): SellerOrderStat
   }
 
   return SELLER_ORDER_STATUS_VALUES.find((value) => value === status);
+}
+
+function getSellerNextStatus(status: string) {
+  switch (status) {
+    case "CONFIRMED":
+      return { value: "PREPARING", label: "Marcar preparando" };
+    case "PREPARING":
+      return { value: "SHIPPED", label: "Marcar enviado" };
+    default:
+      return null;
+  }
 }
 
 export default async function SellerOrdersPage({ searchParams }: SellerOrdersPageProps) {
@@ -132,6 +144,12 @@ export default async function SellerOrdersPage({ searchParams }: SellerOrdersPag
           Revisa las ventas que ya entraron a tu tienda, su estado operativo y el detalle que se usara para tus liquidaciones.
         </p>
       </div>
+
+      {params.message ? (
+        <div className="border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          {params.message}
+        </div>
+      ) : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <article className="border border-stone-200 bg-white p-5">
@@ -269,9 +287,26 @@ export default async function SellerOrdersPage({ searchParams }: SellerOrdersPag
                 <div className="space-y-3">
                   <div className="border border-stone-200 bg-stone-50 px-4 py-4">
                     <p className="text-[11px] uppercase tracking-[0.18em] text-stone-400">Estado operativo</p>
-                    <p className="mt-2 text-sm text-stone-700">
-                      Este estado lo usa administracion para preparar liquidaciones y seguimiento.
-                    </p>
+                    {getSellerNextStatus(sellerOrder.status) ? (
+                      <form action={updateSellerOwnOrderStatusAction} className="mt-2 space-y-3">
+                        <input type="hidden" name="sellerOrderId" value={sellerOrder.id} />
+                        <input type="hidden" name="currentStatus" value={sellerOrder.status} />
+                        <input type="hidden" name="status" value={getSellerNextStatus(sellerOrder.status)?.value} />
+                        <input type="hidden" name="statusFilter" value={currentStatus} />
+                        <p className="text-sm text-stone-700">
+                          Puedes avanzar este pedido al siguiente estado operativo desde tu panel.
+                        </p>
+                        <button className="border border-stone-900 px-4 py-2 text-[11px] uppercase tracking-[0.18em] text-stone-900 transition hover:bg-stone-900 hover:text-white">
+                          {getSellerNextStatus(sellerOrder.status)?.label}
+                        </button>
+                      </form>
+                    ) : (
+                      <p className="mt-2 text-sm text-stone-700">
+                        {sellerOrder.status === "SHIPPED"
+                          ? "Esperando confirmacion final de entrega por administracion."
+                          : "Este estado ya no puede ser movido desde el panel seller."}
+                      </p>
+                    )}
                   </div>
                   <div className="border border-stone-200 bg-stone-50 px-4 py-4">
                     <p className="text-[11px] uppercase tracking-[0.18em] text-stone-400">Referencia cliente</p>

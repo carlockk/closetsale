@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { FeaturedProductsCarousel } from "@/components/featured-products-carousel";
 import { HeroSlider } from "@/components/hero-slider";
+import { HomeParallaxBackdrop } from "@/components/home-parallax-backdrop";
 import { ProductCard } from "@/components/product-card";
 import { SectionHeading } from "@/components/section-heading";
 import { RecentlyViewedProducts } from "@/components/store/recently-viewed";
@@ -16,14 +17,16 @@ export default async function Home() {
   const latestProducts = data.latestProducts.slice(0, 3);
   const mostViewedProducts = data.mostViewed.slice(0, 4);
   const topSellers = data.topSellers.slice(0, 3);
+  const backdropImage = data.slides[0]?.imageUrl || data.featuredProducts[0]?.images[0]?.url;
 
   return (
-    <div className="pb-8">
+    <div className="relative pb-8">
+      {backdropImage ? <HomeParallaxBackdrop imageUrl={backdropImage} /> : null}
       <div className="relative left-1/2 w-[100dvw] max-w-[100dvw] -translate-x-1/2 overflow-hidden">
         <HeroSlider slides={data.slides} />
       </div>
 
-      <div className="mx-auto max-w-7xl px-1.5 py-10 lg:px-2">
+      <div className="relative mx-auto max-w-7xl px-1.5 py-10 lg:px-2">
         <section className="mt-14 grid gap-12 lg:grid-cols-[minmax(0,1.1fr)_320px]">
           <div>
             <SectionHeading

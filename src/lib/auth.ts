@@ -121,9 +121,15 @@ export async function getCurrentSellerProfile() {
           id: true,
           status: true,
           createdAt: true,
+          updatedAt: true,
           commissionAmount: true,
           netAmount: true,
           subtotal: true,
+          order: {
+            select: {
+              orderNumber: true,
+            },
+          },
           payoutItems: {
             select: {
               payout: {
@@ -156,6 +162,23 @@ export async function getCurrentSellerProfile() {
           createdAt: true,
           paidAt: true,
           netAmount: true,
+          items: {
+            select: {
+              id: true,
+              sellerOrder: {
+                select: {
+                  id: true,
+                  createdAt: true,
+                  netAmount: true,
+                  order: {
+                    select: {
+                      orderNumber: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
         },
       },
     },
@@ -190,9 +213,15 @@ export async function requireSeller() {
           id: true,
           status: true,
           createdAt: true,
+          updatedAt: true,
           commissionAmount: true,
           netAmount: true,
           subtotal: true,
+          order: {
+            select: {
+              orderNumber: true,
+            },
+          },
           payoutItems: {
             select: {
               payout: {
@@ -225,6 +254,23 @@ export async function requireSeller() {
           createdAt: true,
           paidAt: true,
           netAmount: true,
+          items: {
+            select: {
+              id: true,
+              sellerOrder: {
+                select: {
+                  id: true,
+                  createdAt: true,
+                  netAmount: true,
+                  order: {
+                    select: {
+                      orderNumber: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
         },
       },
     },

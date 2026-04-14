@@ -1,10 +1,17 @@
+import Link from "next/link";
+
 import {
   createSellerPayoutAction,
   updatePayoutStatusAction,
   updateSellerOrderStatusAction,
 } from "@/actions/admin";
 import { prisma } from "@/lib/prisma";
-import { getSellerFinanceSummary, isSellerOrderEligibleForPayout } from "@/lib/seller-finance";
+import {
+  getPayoutHoldDays,
+  getSellerFinanceSummary,
+  getSellerOrderEligibleAt,
+  isSellerOrderEligibleForPayout,
+} from "@/lib/seller-finance";
 import { formatCurrency, formatShortDate } from "@/lib/utils";
 
 type AdminPayoutsPageProps = {
@@ -41,6 +48,7 @@ export default async function AdminPayoutsPage({ searchParams }: AdminPayoutsPag
             id: true,
             provider: true,
             label: true,
+            verifiedAt: true,
           },
         },
         sellerOrders: {
@@ -48,6 +56,7 @@ export default async function AdminPayoutsPage({ searchParams }: AdminPayoutsPag
           select: {
             id: true,
             createdAt: true,
+            updatedAt: true,
             status: true,
             subtotal: true,
             commissionAmount: true,
@@ -86,6 +95,17 @@ export default async function AdminPayoutsPage({ searchParams }: AdminPayoutsPag
         items: {
           select: {
             id: true,
+            sellerOrderId: true,
+            netAmount: true,
+            sellerOrder: {
+              select: {
+                order: {
+                  select: {
+                    orderNumber: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -160,6 +180,9 @@ export default async function AdminPayoutsPage({ searchParams }: AdminPayoutsPag
                   <p className="mt-2 text-sm text-slate-600">
                     Cuenta: {seller.payoutAccounts[0]?.label || seller.payoutAccounts[0]?.provider || "No registrada"}
                   </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Verificacion: {seller.payoutAccounts[0]?.verifiedAt ? "Cuenta verificada" : seller.payoutAccounts[0] ? "Pendiente de validacion" : "Sin cuenta"}
+                  </p>
                 </div>
 
                 <div className="grid gap-1 text-sm text-slate-600 xl:text-right">
@@ -173,7 +196,7 @@ export default async function AdminPayoutsPage({ searchParams }: AdminPayoutsPag
                 <form action={createSellerPayoutAction}>
                   <input type="hidden" name="sellerId" value={seller.id} />
                   <button
-                    disabled={!seller.payoutAccounts[0] || eligibleOrders.length === 0}
+                    disabled={!seller.payoutAccounts[0] || !seller.payoutAccounts[0].verifiedAt || eligibleOrders.length === 0}
                     className="bg-slate-900 px-4 py-2 text-[11px] uppercase tracking-[0.18em] text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Crear liquidacion
@@ -235,13 +258,28 @@ export default async function AdminPayoutsPage({ searchParams }: AdminPayoutsPag
                                 {order.payoutItems[0].payout.status}
                               </span>
                             ) : (
-                              <span className="inline-flex border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] uppercase tracking-[0.18em] text-emerald-700">
-                                {isSellerOrderEligibleForPayout(order) ? "Elegible" : "Sin payout"}
-                              </span>
+                              <>
+                                <span className={`inline-flex border px-2 py-1 text-[11px] uppercase tracking-[0.18em] ${
+                                  isSellerOrderEligibleForPayout(order)
+                                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                    : "border-stone-200 bg-stone-100 text-stone-600"
+                                }`}>
+                                  {isSellerOrderEligibleForPayout(order) ? "Elegible" : "En espera"}
+                                </span>
+                                {order.status === "DELIVERED" && !isSellerOrderEligibleForPayout(order) ? (
+                                  <p className="mt-2 text-[11px] text-slate-500">
+                                    Disponible desde {formatShortDate(getSellerOrderEligibleAt(order))}
+                                  </p>
+                                ) : null}
+                              </>
                             )}
                           </td>
                           <td className="px-4 py-3 text-xs text-slate-500">
-                            {isSellerOrderEligibleForPayout(order) ? "Listo para liquidar" : "Bloqueado"}
+                            {isSellerOrderEligibleForPayout(order)
+                              ? `Listo para liquidar`
+                              : order.status === "DELIVERED"
+                                ? `Hold de ${getPayoutHoldDays()} dias`
+                                : "Bloqueado"}
                           </td>
                         </tr>
                       ))
@@ -287,7 +325,18 @@ export default async function AdminPayoutsPage({ searchParams }: AdminPayoutsPag
                       <p className="text-xs text-slate-500">/{payout.seller.slug}</p>
                     </td>
                     <td className="px-4 py-3">
-                      {formatShortDate(payout.periodStart)} - {formatShortDate(payout.periodEnd)}
+                      <div>
+                        <p>
+                          {formatShortDate(payout.periodStart)} - {formatShortDate(payout.periodEnd)}
+                        </p>
+                        <div className="mt-1 space-y-1 text-xs text-slate-500">
+                          {payout.items.map((item) => (
+                            <p key={item.id}>
+                              {item.sellerOrder.order.orderNumber} · {formatCurrency(Number(item.netAmount))}
+                            </p>
+                          ))}
+                        </div>
+                      </div>
                     </td>
                     <td className="px-4 py-3">{payout.items.length}</td>
                     <td className="px-4 py-3 font-semibold text-slate-950">
@@ -296,29 +345,37 @@ export default async function AdminPayoutsPage({ searchParams }: AdminPayoutsPag
                     <td className="px-4 py-3">{payout.status}</td>
                     <td className="px-4 py-3">{payout.externalReference || "-"}</td>
                     <td className="px-4 py-3">
-                      <form action={updatePayoutStatusAction} className="flex items-center gap-2">
-                        <input type="hidden" name="payoutId" value={payout.id} />
-                        <select
-                          name="status"
-                          defaultValue={payout.status}
-                          className="border border-slate-200 px-2 py-2 text-xs text-slate-900 outline-none"
+                      <div className="flex flex-col gap-2">
+                        <Link
+                          href={`/admin/payouts/${payout.id}`}
+                          className="text-[11px] uppercase tracking-[0.12em] text-slate-500 underline-offset-4 hover:text-slate-950 hover:underline"
                         >
-                          {PAYOUT_STATUS_OPTIONS.map((status) => (
-                            <option key={status} value={status}>
-                              {status}
-                            </option>
-                          ))}
-                        </select>
-                        <input
-                          name="externalReference"
-                          defaultValue={payout.externalReference || ""}
-                          placeholder="Referencia"
-                          className="w-32 border border-slate-200 px-2 py-2 text-xs text-slate-900 outline-none"
-                        />
-                        <button className="border border-slate-200 px-2 py-2 text-[11px] uppercase tracking-[0.12em] text-slate-700">
-                          Guardar
-                        </button>
-                      </form>
+                          Ver detalle
+                        </Link>
+                        <form action={updatePayoutStatusAction} className="flex items-center gap-2">
+                          <input type="hidden" name="payoutId" value={payout.id} />
+                          <select
+                            name="status"
+                            defaultValue={payout.status}
+                            className="border border-slate-200 px-2 py-2 text-xs text-slate-900 outline-none"
+                          >
+                            {PAYOUT_STATUS_OPTIONS.map((status) => (
+                              <option key={status} value={status}>
+                                {status}
+                              </option>
+                            ))}
+                          </select>
+                          <input
+                            name="externalReference"
+                            defaultValue={payout.externalReference || ""}
+                            placeholder="Referencia"
+                            className="w-32 border border-slate-200 px-2 py-2 text-xs text-slate-900 outline-none"
+                          />
+                          <button className="border border-slate-200 px-2 py-2 text-[11px] uppercase tracking-[0.12em] text-slate-700">
+                            Guardar
+                          </button>
+                        </form>
+                      </div>
                     </td>
                   </tr>
                 ))

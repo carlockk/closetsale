@@ -1,6 +1,13 @@
+import Link from "next/link";
+
 import { upsertSellerPayoutAccountAction } from "@/actions/seller";
 import { requireSeller } from "@/lib/auth";
-import { getSellerFinanceSummary, isSellerOrderEligibleForPayout } from "@/lib/seller-finance";
+import {
+  getPayoutHoldDays,
+  getSellerFinanceSummary,
+  getSellerOrderEligibleAt,
+  isSellerOrderEligibleForPayout,
+} from "@/lib/seller-finance";
 import { formatCurrency, formatShortDate } from "@/lib/utils";
 
 type SellerFinancePageProps = {
@@ -93,7 +100,7 @@ export default async function SellerFinancePage({ searchParams }: SellerFinanceP
               <h2 className="mt-2 text-xl font-semibold text-stone-950">Pedidos y saldo generado</h2>
             </div>
             <div className="text-right text-xs text-stone-500">
-              Elegible para liquidacion: pedido marcado como <span className="font-semibold text-stone-900">DELIVERED</span>.
+              Elegible para liquidacion: <span className="font-semibold text-stone-900">DELIVERED + {getPayoutHoldDays()} dias</span>.
             </div>
           </div>
 
@@ -139,6 +146,11 @@ export default async function SellerFinancePage({ searchParams }: SellerFinanceP
                           >
                             {eligible ? "Si" : "No"}
                           </span>
+                          {!eligible && order.status === "DELIVERED" ? (
+                            <p className="mt-2 text-[11px] text-stone-500">
+                              Disponible desde {formatShortDate(getSellerOrderEligibleAt(order))}
+                            </p>
+                          ) : null}
                         </td>
                       </tr>
                     );
@@ -156,6 +168,12 @@ export default async function SellerFinancePage({ searchParams }: SellerFinanceP
             <p className="mt-3 text-sm text-stone-600">
               Guarda la cuenta que administracion usara para pagarte las liquidaciones.
             </p>
+            <div className="mt-4 border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-700">
+              Estado de cuenta:{" "}
+              <span className="font-medium text-stone-950">
+                {defaultAccount?.verifiedAt ? "Verificada por administracion" : defaultAccount ? "Pendiente de validacion admin" : "Sin registrar"}
+              </span>
+            </div>
 
             <form action={upsertSellerPayoutAccountAction} className="mt-5 grid gap-4">
               <label className="grid gap-2 text-sm text-stone-700">
@@ -245,6 +263,25 @@ export default async function SellerFinancePage({ searchParams }: SellerFinanceP
                     {payout.externalReference ? (
                       <p className="mt-2 text-xs text-stone-500">Referencia: {payout.externalReference}</p>
                     ) : null}
+                    {payout.items.length > 0 ? (
+                      <div className="mt-3 border-t border-stone-200 pt-3">
+                        <p className="text-[11px] uppercase tracking-[0.18em] text-stone-400">Pedidos incluidos</p>
+                        <div className="mt-2 space-y-1 text-xs text-stone-600">
+                          {payout.items.map((item) => (
+                            <div key={item.id} className="flex items-center justify-between gap-3">
+                              <span>{item.sellerOrder.order.orderNumber}</span>
+                              <span>{formatCurrency(Number(item.sellerOrder.netAmount))}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                    <Link
+                      href={`/seller/finanzas/${payout.id}`}
+                      className="mt-3 inline-flex text-[11px] uppercase tracking-[0.18em] text-stone-500 underline-offset-4 hover:text-stone-950 hover:underline"
+                    >
+                      Ver detalle
+                    </Link>
                   </article>
                 ))
               )}

@@ -29,6 +29,18 @@ function buildSellerProductsHref(params: Record<string, string | null | undefine
   return query.size ? `/seller/products?${query.toString()}` : "/seller/products";
 }
 
+function buildSellerOrdersHref(params: Record<string, string | null | undefined>) {
+  const query = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value) {
+      query.set(key, value);
+    }
+  });
+
+  return query.size ? `/seller/orders?${query.toString()}` : "/seller/orders";
+}
+
 export async function createSellerProductAction(formData: FormData) {
   const seller = await requireSeller();
 
@@ -246,7 +258,10 @@ export async function upsertSellerPayoutAccountAction(formData: FormData) {
   if (existingAccount) {
     await prisma.sellerPayoutAccount.update({
       where: { id: existingAccount.id },
-      data,
+      data: {
+        ...data,
+        verifiedAt: null,
+      },
     });
   } else {
     await prisma.sellerPayoutAccount.create({
@@ -262,4 +277,61 @@ export async function upsertSellerPayoutAccountAction(formData: FormData) {
   revalidatePath("/admin/sellers");
   revalidatePath("/admin/payouts");
   redirect("/seller/finanzas?message=Cuenta de cobro guardada");
+}
+
+export async function updateSellerOwnOrderStatusAction(formData: FormData) {
+  const seller = await requireSeller();
+
+  const sellerOrderId = String(formData.get("sellerOrderId") || "");
+  const nextStatus = String(formData.get("status") || "");
+  const currentStatus = String(formData.get("currentStatus") || "");
+  const statusFilter = String(formData.get("statusFilter") || "");
+
+  const allowedTransitions: Record<string, string[]> = {
+    CONFIRMED: ["PREPARING"],
+    PREPARING: ["SHIPPED"],
+    SHIPPED: [],
+  };
+
+  if (!sellerOrderId || !nextStatus || !currentStatus) {
+    redirect(buildSellerOrdersHref({ status: statusFilter, message: "No se pudo actualizar el pedido" }));
+  }
+
+  if (!allowedTransitions[currentStatus]?.includes(nextStatus)) {
+    redirect(
+      buildSellerOrdersHref({
+        status: statusFilter,
+        message: "Ese cambio de estado no esta permitido para el seller",
+      }),
+    );
+  }
+
+  const sellerOrder = await prisma.sellerOrder.findFirst({
+    where: { id: sellerOrderId, sellerId: seller.id },
+    select: { id: true, status: true },
+  });
+
+  if (!sellerOrder) {
+    redirect(buildSellerOrdersHref({ status: statusFilter, message: "Pedido seller no encontrado" }));
+  }
+
+  if (sellerOrder.status !== currentStatus) {
+    redirect(
+      buildSellerOrdersHref({
+        status: statusFilter,
+        message: "El pedido cambio de estado. Recarga la vista antes de continuar",
+      }),
+    );
+  }
+
+  await prisma.sellerOrder.update({
+    where: { id: sellerOrder.id },
+    data: { status: nextStatus as "PREPARING" | "SHIPPED" },
+  });
+
+  revalidatePath("/seller");
+  revalidatePath("/seller/orders");
+  revalidatePath("/seller/finanzas");
+  revalidatePath("/admin/payouts");
+  redirect(buildSellerOrdersHref({ status: statusFilter, message: "Estado de pedido actualizado" }));
 }

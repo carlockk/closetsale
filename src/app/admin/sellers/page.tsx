@@ -1,4 +1,8 @@
-import { updateSellerCommissionAction, updateSellerStatusAction } from "@/actions/admin";
+import {
+  updateSellerCommissionAction,
+  updateSellerStatusAction,
+  verifySellerPayoutAccountAction,
+} from "@/actions/admin";
 import { getDefaultCommissionRate } from "@/lib/marketplace";
 import { prisma } from "@/lib/prisma";
 
@@ -152,10 +156,13 @@ export default async function AdminSellersPage({
                     <p>
                       Cuenta de cobro: {seller.payoutAccounts[0]?.label || seller.payoutAccounts[0]?.provider || "No registrada"}
                     </p>
+                    <p>
+                      Verificacion: {seller.payoutAccounts[0]?.verifiedAt ? "Verificada" : seller.payoutAccounts[0] ? "Pendiente" : "Sin cuenta"}
+                    </p>
                   </div>
                 </div>
 
-                <div className="mt-5 grid gap-4 border-t border-slate-200 pt-4 xl:grid-cols-2">
+                <div className="mt-5 grid gap-4 border-t border-slate-200 pt-4 xl:grid-cols-3">
                   <form action={updateSellerStatusAction} className="flex flex-wrap items-end gap-3">
                     <input type="hidden" name="sellerId" value={seller.id} />
                     <label className="grid gap-2 text-sm text-slate-700">
@@ -198,6 +205,36 @@ export default async function AdminSellersPage({
                       Guardar comision
                     </button>
                   </form>
+                  <div className="flex flex-wrap items-end gap-3">
+                    {seller.payoutAccounts[0] ? (
+                      <form action={verifySellerPayoutAccountAction} className="flex flex-wrap items-end gap-3">
+                        <input type="hidden" name="sellerId" value={seller.id} />
+                        <input type="hidden" name="accountId" value={seller.payoutAccounts[0].id} />
+                        <div className="grid gap-2 text-sm text-slate-700">
+                          <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                            Cuenta de cobro
+                          </span>
+                          <span className="border border-slate-200 px-3 py-2 text-sm text-slate-700">
+                            {seller.payoutAccounts[0].verifiedAt ? "Verificada" : "Pendiente de validar"}
+                          </span>
+                        </div>
+                        {!seller.payoutAccounts[0].verifiedAt ? (
+                          <button className="bg-slate-900 px-4 py-2 text-[11px] uppercase tracking-[0.18em] text-white transition hover:bg-slate-800">
+                            Verificar cuenta
+                          </button>
+                        ) : null}
+                      </form>
+                    ) : (
+                      <div className="grid gap-2 text-sm text-slate-700">
+                        <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                          Cuenta de cobro
+                        </span>
+                        <span className="border border-slate-200 px-3 py-2 text-sm text-slate-500">
+                          El seller aun no registra datos de pago
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </article>
             );
