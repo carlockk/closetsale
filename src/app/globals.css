@@ -43,6 +43,15 @@ button {
   transition: all 160ms ease;
 }
 
+button,
+input[type="button"],
+input[type="submit"],
+input[type="reset"],
+a[class*="rounded-full"][class*="px-"],
+label[class*="rounded-full"][class*="px-"] {
+  border-radius: 0 !important;
+}
+
 ::selection {
   background: #b88746;
   color: white;
