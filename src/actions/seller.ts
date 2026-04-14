@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { requireSeller } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { safeSlug } from "@/lib/utils";
-import { productSchema } from "@/lib/validations";
+import { productSchema, sellerPayoutAccountSchema } from "@/lib/validations";
 
 function parseJsonArray(rawValue: FormDataEntryValue | null) {
   try {
@@ -205,4 +205,61 @@ export async function activateSellerProductAction(formData: FormData) {
   revalidatePath("/products");
   revalidatePath(`/products/${product.slug}`);
   redirect("/seller/products?message=Producto activado");
+}
+
+export async function upsertSellerPayoutAccountAction(formData: FormData) {
+  const seller = await requireSeller();
+
+  const parsed = sellerPayoutAccountSchema.safeParse({
+    provider: formData.get("provider"),
+    accountType: formData.get("accountType"),
+    holderName: formData.get("holderName"),
+    accountNumber: formData.get("accountNumber"),
+    bankName: formData.get("bankName"),
+    email: formData.get("email"),
+    notes: formData.get("notes"),
+  });
+
+  if (!parsed.success) {
+    redirect("/seller/finanzas?message=No se pudo guardar la cuenta de cobro");
+  }
+
+  const existingAccount = await prisma.sellerPayoutAccount.findFirst({
+    where: { sellerId: seller.id, isDefault: true },
+    select: { id: true },
+  });
+
+  const data = {
+    provider: parsed.data.provider,
+    accountType: parsed.data.accountType,
+    label: `${parsed.data.bankName} · ${parsed.data.accountNumber.slice(-4)}`,
+    details: {
+      holderName: parsed.data.holderName,
+      accountNumber: parsed.data.accountNumber,
+      bankName: parsed.data.bankName,
+      email: parsed.data.email || null,
+      notes: parsed.data.notes || null,
+    },
+    isDefault: true,
+  };
+
+  if (existingAccount) {
+    await prisma.sellerPayoutAccount.update({
+      where: { id: existingAccount.id },
+      data,
+    });
+  } else {
+    await prisma.sellerPayoutAccount.create({
+      data: {
+        sellerId: seller.id,
+        ...data,
+      },
+    });
+  }
+
+  revalidatePath("/seller");
+  revalidatePath("/seller/finanzas");
+  revalidatePath("/admin/sellers");
+  revalidatePath("/admin/payouts");
+  redirect("/seller/finanzas?message=Cuenta de cobro guardada");
 }

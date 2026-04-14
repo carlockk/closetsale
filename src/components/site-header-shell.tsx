@@ -21,15 +21,16 @@ export function SiteHeaderShell({ children }: { children: React.ReactNode }) {
   return (
     <>
       <header
+        data-scrolled={scrolled ? "true" : "false"}
         className={`fixed inset-x-0 top-0 z-[60] transition-all duration-300 ${
           scrolled
-            ? "bg-white/84 shadow-sm backdrop-blur-xl"
+            ? "bg-white/20 backdrop-blur-xl"
             : "bg-transparent"
         }`}
       >
         {children}
       </header>
-      <div className="h-[88px]" aria-hidden="true" />
+      <div className="h-[104px] lg:h-[72px]" aria-hidden="true" />
     </>
   );
 }

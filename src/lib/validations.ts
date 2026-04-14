@@ -117,3 +117,28 @@ export const checkoutSchema = z.object({
 
 export const orderStatusSchema = z.enum(["PENDING", "PAID", "CANCELLED"]);
 export const sellerStatusSchema = z.enum(["PENDING", "ACTIVE", "SUSPENDED", "REJECTED"]);
+export const sellerOrderStatusSchema = z.enum([
+  "PENDING",
+  "CONFIRMED",
+  "PREPARING",
+  "SHIPPED",
+  "DELIVERED",
+  "CANCELLED",
+  "REFUNDED",
+]);
+export const payoutStatusSchema = z.enum([
+  "DRAFT",
+  "PROCESSING",
+  "PAID",
+  "FAILED",
+  "CANCELLED",
+]);
+export const sellerPayoutAccountSchema = z.object({
+  provider: z.string().trim().min(2, "Proveedor requerido"),
+  accountType: z.string().trim().min(2, "Tipo de cuenta requerido"),
+  holderName: z.string().trim().min(2, "Titular requerido"),
+  accountNumber: z.string().trim().min(4, "Numero de cuenta invalido"),
+  bankName: z.string().trim().min(2, "Banco requerido"),
+  email: emailSchema.optional().or(z.literal("")),
+  notes: z.string().trim().optional(),
+});

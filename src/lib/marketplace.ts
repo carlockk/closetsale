@@ -1,5 +1,5 @@
 const DEFAULT_PLATFORM_NAME = "ClosetSale";
-const DEFAULT_COMMISSION_RATE = 12;
+const DEFAULT_COMMISSION_RATE = 15;
 
 export function getDefaultCommissionRate() {
   return DEFAULT_COMMISSION_RATE;

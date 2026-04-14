@@ -38,6 +38,10 @@ body.admin-route .public-main {
   padding-bottom: 0;
 }
 
+header[data-scrolled="true"] .header-surface {
+  background: rgb(248 244 237 / 0.62);
+}
+
 a,
 button {
   transition: all 160ms ease;

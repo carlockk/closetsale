@@ -1,6 +1,8 @@
 import Link from "next/link";
 
 import { SectionHeading } from "@/components/section-heading";
+import { getSellerFinanceSummary } from "@/lib/seller-finance";
+import { formatCurrency } from "@/lib/utils";
 
 type SellerDashboardProps = {
   seller: {
@@ -9,13 +11,26 @@ type SellerDashboardProps = {
     slug: string;
     description: string | null;
     products: Array<{ id: string; status: string }>;
-    sellerOrders: Array<{ id: string; status: string; subtotal: unknown; netAmount: unknown }>;
+    sellerOrders: Array<{
+      id: string;
+      status: string;
+      subtotal: unknown;
+      commissionAmount: unknown;
+      netAmount: unknown;
+      payoutItems?: Array<{ payout: { status: string } }>;
+    }>;
     payouts: Array<{ id: string; status: string; netAmount: unknown }>;
+    payoutAccounts?: Array<{ id: string }>;
   };
   message?: string;
 };
 
 export function SellerDashboard({ seller, message }: SellerDashboardProps) {
+  const finance = getSellerFinanceSummary({
+    sellerOrders: seller.sellerOrders,
+    payouts: seller.payouts,
+  });
+
   const dashboardCards = [
     {
       label: "Productos",
@@ -34,16 +49,14 @@ export function SellerDashboard({ seller, message }: SellerDashboardProps) {
           : "Tus ventas apareceran aqui cuando empieces a vender.",
     },
     {
-      label: "Pagos",
-      value: String(seller.payouts.length),
-      description: "Resumen de liquidaciones registradas para tu tienda.",
+      label: "Pendiente",
+      value: formatCurrency(finance.pendingBalance),
+      description: "Monto listo para futura liquidacion segun las ventas elegibles.",
     },
     {
-      label: "Neto",
-      value: `$${Intl.NumberFormat("es-CL").format(
-        seller.sellerOrders.reduce((sum, order) => sum + Number(order.netAmount), 0),
-      )}`,
-      description: "Monto neto acumulado antes de liquidaciones finales.",
+      label: "Liquidado",
+      value: formatCurrency(finance.paidBalance),
+      description: "Pagos marcados como liquidados desde administracion.",
     },
   ];
 
@@ -96,6 +109,12 @@ export function SellerDashboard({ seller, message }: SellerDashboardProps) {
               Gestionar productos
             </Link>
             <Link
+              href="/seller/finanzas"
+              className="inline-flex border border-stone-900 px-5 py-2 text-sm uppercase tracking-[0.18em] text-stone-900 transition hover:bg-stone-900 hover:text-white"
+            >
+              Ver finanzas
+            </Link>
+            <Link
               href="/profile"
               className="inline-flex border border-stone-200 px-5 py-2 text-sm uppercase tracking-[0.18em] text-stone-600 transition hover:border-stone-900 hover:text-stone-950"
             >
@@ -110,10 +129,13 @@ export function SellerDashboard({ seller, message }: SellerDashboardProps) {
           <ul className="mt-5 space-y-3 text-sm leading-6 text-stone-300">
             <li>1. Completa tu informacion de tienda.</li>
             <li>2. Agrega o publica productos desde la seccion de productos seller.</li>
-            <li>3. Revisa ventas y liquidaciones cuando terminemos esas vistas.</li>
+            <li>
+              3. {seller.payoutAccounts?.length ? "Tu cuenta de cobro ya esta lista." : "Registra tu cuenta de cobro."}
+            </li>
+            <li>4. Revisa ventas, comisiones y liquidaciones en finanzas.</li>
           </ul>
           <p className="mt-6 text-sm text-stone-400">
-            Este panel ya esta listo para crecer a productos, pedidos y liquidaciones.
+            El seller panel ya controla catalogo y finanzas base para operar el marketplace.
           </p>
         </aside>
       </div>

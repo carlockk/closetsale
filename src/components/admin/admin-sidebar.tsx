@@ -13,6 +13,7 @@ const links = [
   { href: "/admin/products", label: "Productos" },
   { href: "/admin/orders", label: "Pedidos" },
   { href: "/admin/sellers", label: "Sellers" },
+  { href: "/admin/payouts", label: "Liquidaciones" },
   { href: "/admin/messages", label: "Mensajes" },
   { href: "/admin/users", label: "Usuarios" },
   { href: "/admin/slider", label: "Slider" },

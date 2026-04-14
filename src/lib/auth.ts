@@ -120,14 +120,41 @@ export async function getCurrentSellerProfile() {
         select: {
           id: true,
           status: true,
+          createdAt: true,
+          commissionAmount: true,
           netAmount: true,
           subtotal: true,
+          payoutItems: {
+            select: {
+              payout: {
+                select: {
+                  status: true,
+                },
+              },
+            },
+          },
+        },
+      },
+      payoutAccounts: {
+        orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
+        select: {
+          id: true,
+          provider: true,
+          accountType: true,
+          label: true,
+          details: true,
+          isDefault: true,
+          verifiedAt: true,
         },
       },
       payouts: {
         select: {
           id: true,
           status: true,
+          provider: true,
+          externalReference: true,
+          createdAt: true,
+          paidAt: true,
           netAmount: true,
         },
       },
@@ -162,14 +189,41 @@ export async function requireSeller() {
         select: {
           id: true,
           status: true,
+          createdAt: true,
+          commissionAmount: true,
           netAmount: true,
           subtotal: true,
+          payoutItems: {
+            select: {
+              payout: {
+                select: {
+                  status: true,
+                },
+              },
+            },
+          },
+        },
+      },
+      payoutAccounts: {
+        orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
+        select: {
+          id: true,
+          provider: true,
+          accountType: true,
+          label: true,
+          details: true,
+          isDefault: true,
+          verifiedAt: true,
         },
       },
       payouts: {
         select: {
           id: true,
           status: true,
+          provider: true,
+          externalReference: true,
+          createdAt: true,
+          paidAt: true,
           netAmount: true,
         },
       },

@@ -1,4 +1,5 @@
-import { updateSellerStatusAction } from "@/actions/admin";
+import { updateSellerCommissionAction, updateSellerStatusAction } from "@/actions/admin";
+import { getDefaultCommissionRate } from "@/lib/marketplace";
 import { prisma } from "@/lib/prisma";
 
 type AdminSellersPageProps = {
@@ -49,6 +50,16 @@ export default async function AdminSellersPage({
           id: true,
           netAmount: true,
           status: true,
+        },
+      },
+      payoutAccounts: {
+        where: { isDefault: true },
+        take: 1,
+        select: {
+          id: true,
+          provider: true,
+          label: true,
+          verifiedAt: true,
         },
       },
     },
@@ -123,6 +134,9 @@ export default async function AdminSellersPage({
                       {seller.user.name} · {seller.user.email}
                     </p>
                     <p className="mt-1 font-mono text-xs text-slate-500">{seller.slug}</p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Comision: {Number(seller.commissionRate ?? getDefaultCommissionRate())}%
+                    </p>
                     {seller.description ? (
                       <p className="mt-3 max-w-3xl text-sm text-slate-600">
                         {seller.description}
@@ -135,10 +149,13 @@ export default async function AdminSellersPage({
                     <p>Productos: {seller.products.length}</p>
                     <p>Ventas asociadas: {seller.sellerOrders.length}</p>
                     <p>Neto acumulado: ${Intl.NumberFormat("es-CL").format(totalNet)}</p>
+                    <p>
+                      Cuenta de cobro: {seller.payoutAccounts[0]?.label || seller.payoutAccounts[0]?.provider || "No registrada"}
+                    </p>
                   </div>
                 </div>
 
-                <div className="mt-5 border-t border-slate-200 pt-4">
+                <div className="mt-5 grid gap-4 border-t border-slate-200 pt-4 xl:grid-cols-2">
                   <form action={updateSellerStatusAction} className="flex flex-wrap items-end gap-3">
                     <input type="hidden" name="sellerId" value={seller.id} />
                     <label className="grid gap-2 text-sm text-slate-700">
@@ -159,6 +176,26 @@ export default async function AdminSellersPage({
                     </label>
                     <button className="bg-slate-900 px-4 py-2 text-[11px] uppercase tracking-[0.18em] text-white transition hover:bg-slate-800">
                       Guardar estado
+                    </button>
+                  </form>
+                  <form action={updateSellerCommissionAction} className="flex flex-wrap items-end gap-3">
+                    <input type="hidden" name="sellerId" value={seller.id} />
+                    <label className="grid gap-2 text-sm text-slate-700">
+                      <span className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                        Comision seller
+                      </span>
+                      <input
+                        name="commissionRate"
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        defaultValue={Number(seller.commissionRate ?? getDefaultCommissionRate())}
+                        className="w-32 border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-900"
+                      />
+                    </label>
+                    <button className="bg-slate-900 px-4 py-2 text-[11px] uppercase tracking-[0.18em] text-white transition hover:bg-slate-800">
+                      Guardar comision
                     </button>
                   </form>
                 </div>

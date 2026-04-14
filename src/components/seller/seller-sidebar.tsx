@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { getSellerFinanceSummary } from "@/lib/seller-finance";
 import { formatCurrency } from "@/lib/utils";
 
 type SellerSidebarProps = {
@@ -11,7 +12,14 @@ type SellerSidebarProps = {
     slug: string;
     status: string;
     products: Array<{ id: string; status: string }>;
-    sellerOrders: Array<{ id: string; status: string; netAmount: unknown }>;
+    sellerOrders: Array<{
+      id: string;
+      status: string;
+      subtotal: unknown;
+      commissionAmount: unknown;
+      netAmount: unknown;
+      payoutItems?: Array<{ payout: { status: string } }>;
+    }>;
     payouts: Array<{ id: string; status: string; netAmount: unknown }>;
   };
 };
@@ -19,6 +27,8 @@ type SellerSidebarProps = {
 const links = [
   { href: "/seller", label: "Dashboard" },
   { href: "/seller/products", label: "Productos" },
+  { href: "/seller/orders", label: "Pedidos" },
+  { href: "/seller/finanzas", label: "Finanzas" },
   { href: "/profile", label: "Perfil" },
 ] as const;
 
@@ -37,7 +47,10 @@ export function SellerSidebar({ seller }: SellerSidebarProps) {
   const pathname = usePathname();
 
   const activeProducts = seller.products.filter((product) => product.status === "ACTIVE").length;
-  const totalNet = seller.sellerOrders.reduce((sum, order) => sum + Number(order.netAmount), 0);
+  const finance = getSellerFinanceSummary({
+    sellerOrders: seller.sellerOrders,
+    payouts: seller.payouts,
+  });
   const paidPayouts = seller.payouts.filter((payout) => payout.status === "PAID").length;
 
   return (
@@ -61,7 +74,7 @@ export function SellerSidebar({ seller }: SellerSidebarProps) {
         </div>
         <div className="rounded-2xl bg-stone-50 p-4">
           <p className="text-[11px] uppercase tracking-[0.22em] text-stone-400">Neto</p>
-          <p className="mt-2 font-serif text-2xl text-stone-950">{formatCurrency(totalNet)}</p>
+          <p className="mt-2 font-serif text-2xl text-stone-950">{formatCurrency(finance.netSales)}</p>
         </div>
       </div>
 
@@ -78,6 +91,7 @@ export function SellerSidebar({ seller }: SellerSidebarProps) {
         <div className="mt-3 grid gap-3 text-sm text-stone-600">
           <p>Productos: {seller.products.length}</p>
           <p>Ventas: {seller.sellerOrders.length}</p>
+          <p>Pendiente: {formatCurrency(finance.pendingBalance)}</p>
           <p>Liquidaciones: {paidPayouts}</p>
         </div>
       </div>

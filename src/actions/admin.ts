@@ -6,13 +6,17 @@ import { redirect } from "next/navigation";
 
 import { Prisma } from "@/generated/prisma/client";
 import { requireAdmin } from "@/lib/auth";
+import { getDefaultCommissionRate } from "@/lib/marketplace";
 import { prisma } from "@/lib/prisma";
+import { getActivePayoutStatuses } from "@/lib/seller-finance";
 import { safeSlug } from "@/lib/utils";
 import {
   categorySchema,
   orderStatusSchema,
   productSchema,
+  payoutStatusSchema,
   sellerStatusSchema,
+  sellerOrderStatusSchema,
   sitePageSchema,
   slideSchema,
   userSchema,
@@ -670,4 +674,222 @@ export async function updateSellerStatusAction(formData: FormData) {
   revalidatePath("/profile");
   revalidatePath("/seller");
   redirect("/admin/sellers?message=Seller actualizado");
+}
+
+export async function updateSellerOrderStatusAction(formData: FormData) {
+  await requireAdmin();
+
+  const sellerOrderId = String(formData.get("sellerOrderId") || "");
+  const parsed = sellerOrderStatusSchema.safeParse(formData.get("status"));
+
+  if (!sellerOrderId || !parsed.success) {
+    redirect("/admin/payouts?message=No se pudo actualizar el estado del pedido seller");
+  }
+
+  const sellerOrder = await prisma.sellerOrder.findUnique({
+    where: { id: sellerOrderId },
+    select: {
+      id: true,
+      sellerId: true,
+      payoutItems: {
+        select: {
+          payout: {
+            select: {
+              status: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!sellerOrder) {
+    redirect("/admin/payouts?message=Pedido seller no encontrado");
+  }
+
+  const hasActivePayout = sellerOrder.payoutItems.some((item) =>
+    getActivePayoutStatuses().includes(item.payout.status),
+  );
+
+  if (hasActivePayout) {
+    redirect("/admin/payouts?message=No puedes cambiar el estado de un pedido ya incluido en liquidacion");
+  }
+
+  await prisma.sellerOrder.update({
+    where: { id: sellerOrder.id },
+    data: { status: parsed.data },
+  });
+
+  revalidatePath("/admin/payouts");
+  revalidatePath("/seller");
+  revalidatePath("/seller/finanzas");
+  redirect("/admin/payouts?message=Estado del pedido seller actualizado");
+}
+
+export async function createSellerPayoutAction(formData: FormData) {
+  await requireAdmin();
+
+  const sellerId = String(formData.get("sellerId") || "");
+
+  if (!sellerId) {
+    redirect("/admin/payouts?message=No se pudo crear la liquidacion");
+  }
+
+  const seller = await prisma.sellerProfile.findUnique({
+    where: { id: sellerId },
+    select: {
+      id: true,
+      storeName: true,
+      payoutAccounts: {
+        where: { isDefault: true },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          provider: true,
+          accountType: true,
+          details: true,
+        },
+      },
+      sellerOrders: {
+        where: {
+          status: "DELIVERED",
+          payoutItems: {
+            none: {
+              payout: {
+                status: {
+                  in: getActivePayoutStatuses(),
+                },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          createdAt: true,
+          subtotal: true,
+          commissionAmount: true,
+          netAmount: true,
+        },
+      },
+    },
+  });
+
+  if (!seller) {
+    redirect("/admin/payouts?message=Seller no encontrado");
+  }
+
+  const defaultAccount = seller.payoutAccounts[0];
+
+  if (!defaultAccount) {
+    redirect("/admin/payouts?message=El seller debe registrar una cuenta de cobro");
+  }
+
+  if (seller.sellerOrders.length === 0) {
+    redirect("/admin/payouts?message=No hay ventas elegibles para liquidar");
+  }
+
+  const grossAmount = seller.sellerOrders.reduce((sum, order) => sum + Number(order.subtotal), 0);
+  const commissionAmount = seller.sellerOrders.reduce(
+    (sum, order) => sum + Number(order.commissionAmount),
+    0,
+  );
+  const netAmount = seller.sellerOrders.reduce((sum, order) => sum + Number(order.netAmount), 0);
+
+  await prisma.$transaction(async (tx) => {
+    const payout = await tx.payout.create({
+      data: {
+        sellerId: seller.id,
+        periodStart: seller.sellerOrders[0]!.createdAt,
+        periodEnd: seller.sellerOrders[seller.sellerOrders.length - 1]!.createdAt,
+        grossAmount,
+        commissionAmount,
+        netAmount,
+        status: "DRAFT",
+        provider: defaultAccount.provider,
+      },
+    });
+
+    await tx.payoutItem.createMany({
+      data: seller.sellerOrders.map((order) => ({
+        payoutId: payout.id,
+        sellerOrderId: order.id,
+        grossAmount: order.subtotal,
+        commissionAmount: order.commissionAmount,
+        netAmount: order.netAmount,
+      })),
+    });
+  });
+
+  revalidatePath("/admin/payouts");
+  revalidatePath("/seller");
+  revalidatePath("/seller/finanzas");
+  redirect("/admin/payouts?message=Liquidacion creada");
+}
+
+export async function updatePayoutStatusAction(formData: FormData) {
+  await requireAdmin();
+
+  const payoutId = String(formData.get("payoutId") || "");
+  const parsed = payoutStatusSchema.safeParse(formData.get("status"));
+  const externalReference = String(formData.get("externalReference") || "").trim();
+
+  if (!payoutId || !parsed.success) {
+    redirect("/admin/payouts?message=No se pudo actualizar la liquidacion");
+  }
+
+  const payout = await prisma.payout.findUnique({
+    where: { id: payoutId },
+    select: { id: true, sellerId: true },
+  });
+
+  if (!payout) {
+    redirect("/admin/payouts?message=Liquidacion no encontrada");
+  }
+
+  await prisma.payout.update({
+    where: { id: payout.id },
+    data: {
+      status: parsed.data,
+      paidAt: parsed.data === "PAID" ? new Date() : null,
+      externalReference: externalReference || null,
+    },
+  });
+
+  revalidatePath("/admin/payouts");
+  revalidatePath("/seller");
+  revalidatePath("/seller/finanzas");
+  redirect("/admin/payouts?message=Liquidacion actualizada");
+}
+
+export async function updateSellerCommissionAction(formData: FormData) {
+  await requireAdmin();
+
+  const sellerId = String(formData.get("sellerId") || "");
+  const rawRate = String(formData.get("commissionRate") || "").trim();
+  const commissionRate = rawRate ? Number(rawRate) : getDefaultCommissionRate();
+
+  if (!sellerId || Number.isNaN(commissionRate) || commissionRate < 0 || commissionRate > 100) {
+    redirect("/admin/sellers?message=Comision invalida");
+  }
+
+  const seller = await prisma.sellerProfile.findUnique({
+    where: { id: sellerId },
+    select: { id: true },
+  });
+
+  if (!seller) {
+    redirect("/admin/sellers?message=Seller no encontrado");
+  }
+
+  await prisma.sellerProfile.update({
+    where: { id: seller.id },
+    data: {
+      commissionRate,
+    },
+  });
+
+  revalidatePath("/admin/sellers");
+  revalidatePath("/admin/payouts");
+  redirect("/admin/sellers?message=Comision seller actualizada");
 }
