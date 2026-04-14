@@ -36,15 +36,36 @@ const STATUS_OPTIONS = [
   { value: "CANCELLED", label: "Cancelados" },
 ] as const;
 
+const SELLER_ORDER_STATUS_VALUES = [
+  "PENDING",
+  "CONFIRMED",
+  "PREPARING",
+  "SHIPPED",
+  "DELIVERED",
+  "CANCELLED",
+  "REFUNDED",
+] as const;
+
+type SellerOrderStatusValue = (typeof SELLER_ORDER_STATUS_VALUES)[number];
+
+function getSellerOrderStatusFilter(status: string | undefined): SellerOrderStatusValue | undefined {
+  if (!status || status === "ALL") {
+    return undefined;
+  }
+
+  return SELLER_ORDER_STATUS_VALUES.find((value) => value === status);
+}
+
 export default async function SellerOrdersPage({ searchParams }: SellerOrdersPageProps) {
   const params = await searchParams;
   const seller = await requireSeller();
   const currentStatus = params.status || "ALL";
+  const statusFilter = getSellerOrderStatusFilter(params.status);
 
   const sellerOrders = await prisma.sellerOrder.findMany({
     where: {
       sellerId: seller.id,
-      status: currentStatus !== "ALL" ? currentStatus : undefined,
+      status: statusFilter,
     },
     orderBy: { createdAt: "desc" },
     include: {
