@@ -1,6 +1,6 @@
 "use client";
 
-import { MoreHorizontal, Send, X } from "lucide-react";
+import { Send, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import {
@@ -293,10 +293,22 @@ export function ChatWidget() {
       <button
         type="button"
         onClick={() => setIsOpen((current) => !current)}
-        className="chat-widget-trigger rounded-full bg-stone-900 p-4 text-white shadow-xl transition hover:scale-105 hover:bg-stone-700"
+        className="chat-widget-trigger text-[#1f2b63] shadow-xl transition hover:scale-105"
         aria-label={isOpen ? "Cerrar chat" : "Abrir chat"}
       >
-        <MoreHorizontal className="h-6 w-6" />
+        <svg
+          viewBox="0 0 180 156"
+          className="h-[78px] w-[90px] drop-shadow-[0_8px_18px_rgba(28,25,23,0.22)]"
+          aria-hidden="true"
+        >
+          <path
+            d="M28 10h124c16.569 0 30 13.431 30 30v54c0 16.569-13.431 30-30 30h-44l-22 24-4-24H28c-16.569 0-30-13.431-30-30V40c0-16.569 13.431-30 30-30Z"
+            fill="currentColor"
+          />
+          <circle cx="54" cy="67" r="13" fill="#ffffff" />
+          <circle cx="90" cy="67" r="13" fill="#ffffff" />
+          <circle cx="126" cy="67" r="13" fill="#ffffff" />
+        </svg>
       </button>
 
       {isOpen ? (
