@@ -8,7 +8,11 @@ import { Prisma } from "@/generated/prisma/client";
 import { requireAdmin } from "@/lib/auth";
 import { getDefaultCommissionRate } from "@/lib/marketplace";
 import { prisma } from "@/lib/prisma";
-import { getActivePayoutStatuses, isActivePayoutStatus } from "@/lib/seller-finance";
+import {
+  getActivePayoutStatuses,
+  isActivePayoutStatus,
+  isSellerOrderEligibleForPayout,
+} from "@/lib/seller-finance";
 import { safeSlug } from "@/lib/utils";
 import {
   categorySchema,
@@ -753,7 +757,6 @@ export async function createSellerPayoutAction(formData: FormData) {
       },
       sellerOrders: {
         where: {
-          status: "DELIVERED",
           payoutItems: {
             none: {
               payout: {
@@ -768,9 +771,20 @@ export async function createSellerPayoutAction(formData: FormData) {
         select: {
           id: true,
           createdAt: true,
+          updatedAt: true,
+          status: true,
           subtotal: true,
           commissionAmount: true,
           netAmount: true,
+          payoutItems: {
+            select: {
+              payout: {
+                select: {
+                  status: true,
+                },
+              },
+            },
+          },
         },
       },
     },
@@ -790,23 +804,27 @@ export async function createSellerPayoutAction(formData: FormData) {
     redirect("/admin/payouts?message=La cuenta de cobro del seller debe estar verificada");
   }
 
-  if (seller.sellerOrders.length === 0) {
+  const eligibleSellerOrders = seller.sellerOrders.filter((order) =>
+    isSellerOrderEligibleForPayout(order),
+  );
+
+  if (eligibleSellerOrders.length === 0) {
     redirect("/admin/payouts?message=No hay ventas elegibles para liquidar");
   }
 
-  const grossAmount = seller.sellerOrders.reduce((sum, order) => sum + Number(order.subtotal), 0);
-  const commissionAmount = seller.sellerOrders.reduce(
+  const grossAmount = eligibleSellerOrders.reduce((sum, order) => sum + Number(order.subtotal), 0);
+  const commissionAmount = eligibleSellerOrders.reduce(
     (sum, order) => sum + Number(order.commissionAmount),
     0,
   );
-  const netAmount = seller.sellerOrders.reduce((sum, order) => sum + Number(order.netAmount), 0);
+  const netAmount = eligibleSellerOrders.reduce((sum, order) => sum + Number(order.netAmount), 0);
 
   await prisma.$transaction(async (tx) => {
     const payout = await tx.payout.create({
       data: {
         sellerId: seller.id,
-        periodStart: seller.sellerOrders[0]!.createdAt,
-        periodEnd: seller.sellerOrders[seller.sellerOrders.length - 1]!.createdAt,
+        periodStart: eligibleSellerOrders[0]!.createdAt,
+        periodEnd: eligibleSellerOrders[eligibleSellerOrders.length - 1]!.createdAt,
         grossAmount,
         commissionAmount,
         netAmount,
@@ -816,7 +834,7 @@ export async function createSellerPayoutAction(formData: FormData) {
     });
 
     await tx.payoutItem.createMany({
-      data: seller.sellerOrders.map((order) => ({
+      data: eligibleSellerOrders.map((order) => ({
         payoutId: payout.id,
         sellerOrderId: order.id,
         grossAmount: order.subtotal,
